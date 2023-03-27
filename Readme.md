@@ -7,14 +7,22 @@ You can read our published paper on the impact of wildfires on power grids [here
 IGREFire is an Integrated Grid Resilience Evaluation Framework against wildFIREs. It is a Python-based tool that helps to evaluate the impact of wildfires on power grids and assess their resilience.
 
 ## Installation
-1. Clone the repository to your local machine using the command: git clone https://github.com/BehrouzSohrabi/IGREFire.git.
-2. Navigate to the cloned directory: cd IGREFire.
-3. Install the required Python packages: pip install -r requirements.txt.
+1. Clone the repository to your local machine using the command:<br>
+    `git clone https://github.com/BehrouzSohrabi/IGREFire.git`
+2. Navigate to the cloned directory:<br>`cd IGREFire`<br>
+If you want install it on a separate virtual environment:
+    1. Aun the following command:<br>`python -m venv env`
+    2. Activate the new environment: 
+        - Windows: `env\Scripts\activate.bat`
+        - Mac/Linux: `source env/bin/activate`
+3. Install the required Python packages:<br>`pip install -r requirements.txt.`
+
+
 
 ## Usage
 1. Open the command prompt or terminal.
-2. Navigate to the IGREFire directory: cd IGREFire.
-3. Run the command python main.py to launch the GUI.
+2. Navigate to the IGREFire directory: `cd IGREFire`
+3. Run the command `python main.py` to launch the GUI.
 4. Fill in the necessary input fields in the GUI with the required data.
 5. Click the "Run Analysis" button to start the analysis process.
 6. The progress bar will show the progress of the analysis.
@@ -24,9 +32,9 @@ IGREFire is an Integrated Grid Resilience Evaluation Framework against wildFIREs
 If you want to contribute to IGREFire, please follow the below steps:
 
 1. Fork the IGREFire repository.
-2. Create a new branch with a descriptive name: git checkout -b feature/new-feature or git checkout -b fix/bug-fix.
-3. Make your changes and commit them: git commit -m "Add a new feature" or git commit -m "Fix a bug".
-4. Push the changes to your forked repository: git push origin feature/new-feature or git push origin fix/bug-fix.
+2. Create a new branch with a descriptive name:<br>`git checkout -b feature/new-feature or git checkout -b fix/bug-fix`
+3. Make your changes and commit them:<br>`git commit -m "Add a new feature" or git commit -m "Fix a bug"`
+4. Push the changes to your forked repository:<br>`git push origin feature/new-feature or git push origin fix/bug-fix`.`
 5. Open a pull request to the IGREFire repository.
 
 ## Citation and Authors
