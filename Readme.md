@@ -1,8 +1,7 @@
 # IGREFire
-    Integrated Grid Resilience Evaluation Framework against wildFIREs
+**Integrated Grid Resilience Evaluation Framework against wildFIREs**
 
 You can read our published paper on the impact of wildfires on power grids [here](https://....).
-
 
 IGREFire is an Integrated Grid Resilience Evaluation Framework against wildFIREs. It is a Python-based tool that helps to evaluate the impact of wildfires on power grids and assess their resilience.
 
@@ -15,8 +14,7 @@ If you want install it on a separate virtual environment:
     2. Activate the new environment: 
         - Windows: `env\Scripts\activate.bat`
         - Mac/Linux: `source env/bin/activate`
-3. Install the required Python packages:<br>`pip install -r requirements.txt.`
-
+3. Install the required Python packages:<br>`pip install -r requirements.txt`
 
 
 ## Usage
@@ -28,6 +26,7 @@ If you want install it on a separate virtual environment:
 6. The progress bar will show the progress of the analysis.
 7. The results will be displayed using a visualization tool.
 
+
 ## Contributing
 If you want to contribute to IGREFire, please follow the below steps:
 
@@ -36,6 +35,7 @@ If you want to contribute to IGREFire, please follow the below steps:
 3. Make your changes and commit them:<br>`git commit -m "Add a new feature" or git commit -m "Fix a bug"`
 4. Push the changes to your forked repository:<br>`git push origin feature/new-feature or git push origin fix/bug-fix`.`
 5. Open a pull request to the IGREFire repository.
+
 
 ## Citation and Authors
 IGREFire was developed by Behrouz Sohrabi as part of KLab's research efforts. If you use IGREFire in your research work, please cite it using the following BibTeX entry:
@@ -61,9 +61,19 @@ IGREFire was developed by Behrouz Sohrabi as part of KLab's research efforts. If
         date = {2023-04-16},
     }
 
+
 ## Authors
-    Behrouz Sohrabi - University of Denver
-    Other Authors - Affiliation
+- Behrouz Sohrabi - University of Denver
+- Amin Khodaei - University of Denver
+- Other Authors - Affiliation
+
+## Dependencies
+- [PyPower]() - version 1.2.3
+- [FARSITE]() - version a.b.c
+
+## References
+- [Paper Title]() - Author 1 et al., Journal Name, Year.
+- [Book Title]() - Author 1 et al., Publisher, Year.
 
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
