@@ -1,4 +1,9 @@
 pyinstaller==3.6
 requests==2.28.2
 fbs==1.1.9
-PyQt6==6.4.2
+numpy==1.24.2
+shapely==2.0.1
+pyproj==3.4.1
+pyshp==2.3.1
+pandas==1.5.3
+pandastable==0.13.1

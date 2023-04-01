@@ -1,0 +1,22 @@
+# Analysis Status Updates
+ANALYSIS_INSTANTIATED = "Analysis Instantiated.\nID: {}\tTitle: {}"
+INPUT_GENERATION_STARTED = "Generating Scenario Cases & Inputs"
+
+# Input Validation Error Messages
+MISSING_BRANCH_PROPERTY = "Topology GeoJSON file is missing the 'branch' property for a LineString feature."
+NO_LINESTRING_FEATURES = "Topology GeoJSON file does not contain any LineString features representing branches."
+TITLE_ERROR = "analysis_run_title must be a string"
+FILE_DOES_NOT_EXIST = "File {} does not exist"
+LANDSCAPE_BOUNDS_ERROR = "landscape_bounds must be a list with four values: [W, S, E, N]"
+LANDSCAPE_RESOLUTION_ERROR = "landscape_resolution must be either 30, 60, 90, 120, 180, or 270"
+LANDSCAPE_FARSITE_RESOLUTION_ERROR = "farsite_perimeter_resolution must be greater than or equal to landscape_resolution"
+FARSITE_TIMESTEP_ERROR = "farsite_time_step must be an integer"
+FUEL_MOISTURES_ERROR = "fuel_moistures must be a list of lists"
+WEATHER_FILES_NOT_DICT = "weather_files must be a dictionary"
+CROWN_FIRE_ERROR = "crown_fire_method must be either 'Finney' or 'Reinhardt'"
+IGNITION_POINT_VALUE_ERROR = "Either ignition_points_number or ignition_points_distance must be provided, but not both"
+IGNITION_POINT_RADIUS_ERROR = "ignition_points_radius must be an integer"
+
+# Internal Error Messages
+RECORD_DOES_NOT_EXIST = "Record with ID {} not found"
+RECORD_COLUMN_INVALID = "Invalid column name {}"

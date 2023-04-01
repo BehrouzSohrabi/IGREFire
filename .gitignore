@@ -1,3 +1,6 @@
 `archive/*
 outputs/*
+inputs/cases/*
 env/*
+.ipynb_checkpoints/*
+*.pyc
