@@ -1,48 +1,40 @@
 import sys
 
 from .inputs_generator import InputsGenerator
+from .FARSITE import FARSITE
+from .affected_branches import AffectedBranches
+from .powerflow_analysis import PowerFlow
+from .report import Report
+from .utils import callback
 
 class Analysis:
     def __init__(self, config):
-        self.steps = 10
-        self.callback('header', 'IGREFire')
-        self.config = config.build(self.callback)
+        self.config = config
 
     def _prepare_inputs(self):
-        self.inputs = InputsGenerator(self.config, self.callback, step=1)
-        self.inputs.run()
+        self.inputs = InputsGenerator(self.config)
+        self.inputs.generate()
 
     def _run_simulations(self):
-        # Run FARSITE simulations using the FarsiteSimulation class.
-        pass
+        self.simulations = FARSITE(self.config)
+        self.simulations.run()
 
-    def _analyze_results(self):
-        # Process and analyze the simulation results.
-        pass
+    def _prepare_matpower(self):
+        self.matpower = AffectedBranches(self.config)
+        # self.matpower.find()
+        self.matpower.prepare()
+
+    def _run_powerflow(self):
+        self.powerflow = PowerFlow(self.config)
+        self.powerflow.run()
 
     def _visualize_results(self):
-        # Visualize the analysis results.
-        pass
-
-    def callback(self, type, message, step = 0, width = 80, separator = True):
-        if type == 'ValueError':
-            raise ValueError(message)
-        elif type == 'header':
-            if width < len(message):
-                width = int(len(message)*1.1)
-            space = (width - len(message)) // 2
-            print('=' * width)
-            print(' '*space + message)
-            print('=' * width)
-        else:
-            print(f'Step {step}/{self.steps}: {message}')
-            if width < len(message):
-                width = int(len(message)*1.1)
-            if separator:
-                print('-' * width)
+        self.report = Report(self.config)
+        self.report.visualize()
 
     def run(self):
         self._prepare_inputs()
         self._run_simulations()
-        self._analyze_results()
+        self._prepare_powerflow()
+        self._run_powerflow()
         self._visualize_results()

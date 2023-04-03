@@ -11,8 +11,8 @@ FARSITE_ACCELERATION_ON: 1
 FARSITE_FILL_BARRIERS: 1
 SPOTTING_SEED: 253114
 
-FARSITE_START_TIME: ${start_date}
-FARSITE_END_TIME: ${end_date}
+FARSITE_START_TIME: ${start_time}
+FARSITE_END_TIME: ${end_time}
 FARSITE_BURN_PERIODS: ${burn_periods_length}
 ${burn_periods}
 

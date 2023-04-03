@@ -1,6 +1,15 @@
 # Analysis Status Updates
-ANALYSIS_INSTANTIATED = "Analysis Instantiated.\nID: {}\tTitle: {}"
-INPUT_GENERATION_STARTED = "Generating Scenario Cases & Inputs"
+CONFIG_LOADED = "loaded and "
+CONFIG_VALIDATED = "Config {}validated.\nStarting the analysis..."
+CONFIG_SUMMARY = "Analysis ID: {}\t\t Title: {}\nLCP Resolution: {}\t FARSITE Resolution: {}\t Method: {}\nFARSITE TimeSteps: {}\t Start From: {}\t\t Periods Hours: {}\nIgnition Points: {}\t Distance: {}\t\t Radius: {}"
+INPUT_GENERATION_STARTED = "Generating Scenario Cases & Inputs..."
+FARSITE_SCENARIOS = "{} Scenarios loaded."
+FARSITE_ERROR = "Error running FARSITE: {}"
+FARSITE_FINISHED = "FARSITE simulations finished successfully."
+FARSITE_DESCRIPTION = "Running FARSITE for Scenario #{} -> Branch: {} - Point: {} - Weather: {}"
+AFFECTED_BRANCHES_STARTED = "Finding affected branches..."
+AFFECTED_BRANCHES_FINISHED = "Finding affected branches finished successfully."
+AFFECTED_BRANCHES_DESCRIPTION = "Finding affected branches for Scenario #{} -> Branch: {} - Point: {} - Weather: {}"
 
 # Input Validation Error Messages
 MISSING_BRANCH_PROPERTY = "Topology GeoJSON file is missing the 'branch' property for a LineString feature."

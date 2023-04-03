@@ -1,5 +1,12 @@
-def create_report():
-    pass
+import os
 
-def visualize():
-    pass
+class Report:
+    
+    # Class Constructor
+    def __init__(self, config):
+        
+        self.config = config
+
+        
+    def visualize(self):
+        pass

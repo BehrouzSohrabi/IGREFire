@@ -22,33 +22,40 @@ Date:
 """
 
 import sys
-import os
 
 from src.analysis import Analysis
 from src.config import Config
-from src.GUI import AnalysisGUI
+from src.GUI import GUI
 
 if __name__ == '__main__':
 
     # Analysis Default Config Inputs
-    config = Config(
-        analysis_run_title = 'IEEE BUS 30 Basic Run',
-        test_system_topology = './data/grid/IEEE_30_bus_system.geojson',
-        test_system_matpower = './data/grid/IEEE_30_bus_system.py',
-        landscape_file = './data/landscape/IEEE_30_bus_system_resolution_60.lcp',
-        landscape_bounds = [-120.7, 37.6, -120, 38.1],
-        landscape_resolution = 60,
-        farsite_perimeter_resolution = 60,
-        farsite_time_step = 120,
-        fuel_moistures = [[0, 6, 7, 8, 60, 90]],
-        weather_files = {
-            'Autumn': './data/weather/38.45_-120.90_2021_autumn.csv',
-            'Summer': './data/weather/38.45_-120.90_2021_summer.csv'
-        }
-    )
+    # config = Config(
+    #     analysis_run_title = 'IEEE BUS 30 Basic Run - Mid Resolution',
+    #     landscape_file = './data/landscape/IEEE_30_bus_system_resolution_90.lcp',
+    #     landscape_resolution = 90,
+    #     farsite_perimeter_resolution = 90
+    # )
+
+    # Load config by ID
+    config = Config(id=15)
+
+    # Validate and build the config
+    config.build()
+
+    # Instantiate Analysis Object
+    analysis = Analysis(config)
 
     # Initialize and Run the wildfire risk assessment framework with the configuration.
     if len(sys.argv) > 1 and sys.argv[1] == '--gui':
-        AnalysisGUI(config).launch()
+        GUI(analysis).launch()
     else:
-        Analysis(config).run()
+        # Run a thorough analysis
+        # analysis.run()
+
+        # Run individual steps of the analysis
+        # analysis._prepare_inputs()
+        # analysis._run_simulations()
+        analysis._prepare_powerflow()
+        # analysis._run_powerflow()
+        # analysis._visualize_results()
