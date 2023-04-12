@@ -7,7 +7,7 @@ from shapely.geometry import Point
 from .utils import cloud_cover_mapping, traverse_branch, arrays_to_string, callback
 from .messages import *
 
-class InputsGenerator:
+class Inputs:
 
     # Class Constructor
     def __init__(self, config):
@@ -69,7 +69,7 @@ class InputsGenerator:
 
         weather_files = []
 
-        for title, file in self.config.weather_files.items():
+        for weather, file in self.config.weather_files.items():
 
             # Select the rows based on farsite_start and farsite_burn_periods
             df = pd.read_csv(file, skiprows=2)
@@ -105,7 +105,7 @@ class InputsGenerator:
                 template = string.Template(f.read())
             
             # Substitute the placeholders with the actual values and Write the output to a new file
-            file_name = self.config.generate_file_name('weather', title=title)
+            file_name = self.config.generate_file_name('weather', weather=weather)
             params = {
                 'elevation': self._read_elevation(file),
                 'rows_length': len(raws),
@@ -116,7 +116,7 @@ class InputsGenerator:
 
             # Weather Files Metadata
             weather_files.append({
-                'Title' : title,
+                'Weather' : weather,
                 'Weather File': file_name,
                 'Burn Periods': burn_periods
             })
@@ -134,7 +134,7 @@ class InputsGenerator:
                 template = string.Template(f.read())
             
             # Substitute the placeholders with the actual values and Write the output to a new file
-            file_name = self.config.generate_file_name('input', title=weather_file['Title'])
+            file_name = self.config.generate_file_name('input', weather=weather_file['Weather'])
             params = {
                 'time_step': self.config.farsite_time_step,
                 'landscape_resolution': self.config.landscape_resolution,
@@ -169,7 +169,7 @@ class InputsGenerator:
                     template = string.Template(f.read())
                 
                 # Substitute the placeholders with the actual values and Write the output to a new file
-                run_dir = self.config.generate_file_name('run', title=input_file['Title'], branch_id=ignition_file['Branch'], point_id=ignition_file['Ignition Point'])
+                run_dir = self.config.generate_file_name('run', weather=input_file['Weather'], branch_id=ignition_file['Branch'], point_id=ignition_file['Ignition Point'])
                 params = {
                     'landscape': self.config.landscape_file,
                     'input': input_file['Input File'],

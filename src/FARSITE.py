@@ -10,6 +10,7 @@ class FARSITE:
     def __init__(self, config):
 
         self.config = config
+        self.scenarios = self.config.read_scenarios()
     
     def run_farsite(self, run_dir, description=''):
 
@@ -41,12 +42,11 @@ class FARSITE:
         print() # wrap progress bar
 
         # Iterate over scenarios
-        scenarios = self.config.read_scenarios()
-        for index, row in scenarios.iterrows():
+        for index, row in self.scenarios.iterrows():
             
             # Show progress bar
             id = index+1
-            description = FARSITE_DESCRIPTION.format(id, row["Branch"], row["Ignition Point"], row["Title"])
+            description = FARSITE_DESCRIPTION.format(id, row["Branch"], row["Ignition Point"], row["Weather"])
             progress_bar(id, self.config.scenarios, prefix='Progress:', description=description)
             
             # Run FARSITE Simulation

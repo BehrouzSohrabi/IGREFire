@@ -1,9 +1,9 @@
 import sys
 
-from .inputs_generator import InputsGenerator
+from .inputs import Inputs
 from .FARSITE import FARSITE
-from .affected_branches import AffectedBranches
-from .powerflow_analysis import PowerFlow
+from .MATPOWER import MATPOWER
+from .powerflow import PowerFlow
 from .report import Report
 from .utils import callback
 
@@ -11,8 +11,8 @@ class Analysis:
     def __init__(self, config):
         self.config = config
 
-    def _prepare_inputs(self):
-        self.inputs = InputsGenerator(self.config)
+    def _generate_inputs(self):
+        self.inputs = Inputs(self.config)
         self.inputs.generate()
 
     def _run_simulations(self):
@@ -20,8 +20,7 @@ class Analysis:
         self.simulations.run()
 
     def _prepare_matpower(self):
-        self.matpower = AffectedBranches(self.config)
-        # self.matpower.find()
+        self.matpower = MATPOWER(self.config)
         self.matpower.prepare()
 
     def _run_powerflow(self):
@@ -33,8 +32,8 @@ class Analysis:
         self.report.visualize()
 
     def run(self):
-        self._prepare_inputs()
+        self._generate_inputs()
         self._run_simulations()
-        self._prepare_powerflow()
+        self._prepare_matpower()
         self._run_powerflow()
         self._visualize_results()

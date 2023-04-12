@@ -14,7 +14,6 @@ If you want install it on a separate virtual environment:
     2. Activate the new environment: 
         - Windows: `env\Scripts\activate.bat`
         - Mac/Linux: `source env/bin/activate`
-4. Install gdal:<br>`brew install gdal`
 3. Install the required Python packages:<br>`pip install -r requirements.txt`
 
 

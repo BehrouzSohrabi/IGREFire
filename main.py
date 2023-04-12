@@ -31,14 +31,11 @@ if __name__ == '__main__':
 
     # Analysis Default Config Inputs
     # config = Config(
-    #     analysis_run_title = 'IEEE BUS 30 Basic Run - Mid Resolution',
-    #     landscape_file = './data/landscape/IEEE_30_bus_system_resolution_90.lcp',
-    #     landscape_resolution = 90,
-    #     farsite_perimeter_resolution = 90
+    #     analysis_run_title = 'IEEE BUS 30 Basic Run - High Resolution',
     # )
 
     # Load config by ID
-    config = Config(id=15)
+    config = Config(id=2)
 
     # Validate and build the config
     config.build()
@@ -54,8 +51,8 @@ if __name__ == '__main__':
         # analysis.run()
 
         # Run individual steps of the analysis
-        # analysis._prepare_inputs()
+        # analysis._generate_inputs()
         # analysis._run_simulations()
-        analysis._prepare_powerflow()
-        # analysis._run_powerflow()
+        # analysis._prepare_matpower()
+        analysis._run_powerflow()
         # analysis._visualize_results()

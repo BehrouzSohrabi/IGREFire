@@ -188,7 +188,7 @@ def loadcase(casefile,
 
             if (ppc['version'] == '1'):
                 # convert from version 1 to version 2
-                ppc['gen'], ppc['branch'] = ppc_1to2(ppc['gen'], ppc['branch']);
+                ppc['gen'], ppc['branch'] = ppc_1to2(ppc['gen'], ppc['branch'])
                 ppc['version'] = '2'
 
     if info == 0:  # no errors

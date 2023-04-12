@@ -1,7 +1,9 @@
-import os
+from os.path import basename, splitext, exists, isfile, dirname
+from os import makedirs, remove
 import json
 import ast
 import pandas as pd
+from numpy import array
 from datetime import datetime
 from pyproj import Geod
 from shapely.geometry import Polygon
@@ -35,6 +37,7 @@ class Config:
         ignition_points_number (int): Number of ignition points per branch (None for using ignition_points_distance).
         ignition_points_distance (int, optional): Space between each ignition point on branches in meters (None for using ignition_points_number). Defaults to None.
         ignition_points_radius (int): Radius of the ignition points in meters.
+        branch_effects (list): Determines how branches will be affected by wildfire ('trip' and or 'degrade')
 
     """
     def __init__(self, id=None, **kwargs):
@@ -44,9 +47,10 @@ class Config:
 
         # Static Attributes
         self.records_file           = './outputs/records.csv'
-        self.FARSITE_raws_template  = './assets/FARSITE/templates/raws'
-        self.FARSITE_input_template = './assets/FARSITE/templates/input'
-        self.FARSITE_run_template   = './assets/FARSITE/templates/run'
+        self.FARSITE_raws_template  = './assets/templates/FARSITE_raws'
+        self.FARSITE_input_template = './assets/templates/FARSITE_input'
+        self.FARSITE_run_template   = './assets/templates/FARSITE_run'
+        self.MATPOWER_template      = './assets/templates/MATPOWER'
         self.FARSITE                = './assets/FARSITE/FARSITE'
         self.FARSITE_run_file       = 'FARSITE.run'
         self.FARSITE_intensity_file = '_Intensity.asc'
@@ -81,6 +85,7 @@ class Config:
         self.ignition_points_radius       = int(load_from.get('ignition_points_radius', 30))
         self.scenarios                    = int(load_from.get('scenarios', 0))
         self.scenarios_file               = load_from.get('scenarios_file', None)
+        self.branch_effects               = ast.literal_eval(load_from.get('branch_effects', '["trip"]'))
 
         # Centroid of the LCP file
         self.center = self._find_centroid()
@@ -93,6 +98,11 @@ class Config:
         boundary = Polygon([(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)])
         return boundary.centroid
     
+    def read_MATPOWER_path(self):
+        root_name, extension = splitext(self.test_system_matpower)
+        case_name = basename(root_name)
+        return root_name, extension, case_name
+    
     # Validate, Build and Return the config instance
     def build(self):
 
@@ -103,7 +113,7 @@ class Config:
         # Validate file paths
         files = [self.test_system_topology, self.test_system_matpower, self.landscape_file, self.barriers_file]
         for file in files:
-            if file != "" and file is not None and not os.path.isfile(file):
+            if file != "" and file is not None and not isfile(file):
                 return callback("ValueError", FILE_DOES_NOT_EXIST.format(file))
 
         # Validate landscape_bounds
@@ -130,7 +140,7 @@ class Config:
         if not isinstance(self.weather_files, dict):
             return callback("ValueError", WEATHER_FILES_NOT_DICT)
         for file in self.weather_files.values():
-            if not os.path.isfile(file):
+            if not isfile(file):
                 return callback("ValueError", FILE_DOES_NOT_EXIST.format(file))
 
         # Validate crown_fire_method
@@ -146,7 +156,7 @@ class Config:
         if not isinstance(self.ignition_points_radius, int):
             return callback("ValueError", IGNITION_POINT_RADIUS_ERROR)
     
-        # Validate Topology
+        # Validate and Load Topology
         # Read GeoJSON file
         with open(self.test_system_topology) as f:
             self.topology = json.load(f)
@@ -161,6 +171,14 @@ class Config:
         if not branch_found:
             callback("ValueError", NO_LINESTRING_FEATURES)
 
+        # Validate and Load MATPOWER
+        try:
+            root_name, extension, case_name = self.read_MATPOWER_path()
+            exec(compile(open(root_name + extension).read(), root_name + extension, 'exec'))
+            self.matpower = eval(case_name)()
+        except:
+            callback("ValueError", MATPOWER_LOAD_ERROR)
+
         # Save the inputs record and assign an ID for the config
         if self.id is None:
             self.id = self.save_records()
@@ -171,34 +189,65 @@ class Config:
         # Return status callback
         callback("update", CONFIG_VALIDATED.format("" if new_config else CONFIG_LOADED), separator=False)
         callback("update", CONFIG_SUMMARY.format(self.id, self.analysis_run_title, self.landscape_resolution, self.farsite_perimeter_resolution, self.crown_fire_method, self.farsite_time_step, self.farsite_start, self.farsite_burn_periods, self.ignition_points_number, self.ignition_points_distance, self.ignition_points_radius))
-    
+
     def generate_file_name(self, file_type, **kwargs):
+
+        remove_old = False
+
         if file_type == 'ignition_points':
             file = f'./outputs/FARSITE/{self.id}/ignition_points/branch_{kwargs["branch_id"]}/point_{kwargs["point_id"]}.shp'
+
         elif file_type == 'weather':
-            file = f'./outputs/FARSITE/{self.id}/weather_{kwargs["title"]}/FARSITE.raws'
+            file = f'./outputs/FARSITE/{self.id}/weather_{kwargs["weather"]}/FARSITE.raws'
+
         elif file_type == 'input':
-            file = f'./outputs/FARSITE/{self.id}/weather_{kwargs["title"]}/FARSITE.input'
+            file = f'./outputs/FARSITE/{self.id}/weather_{kwargs["weather"]}/FARSITE.input'
+
         elif file_type == 'run':
-            file = f'./outputs/FARSITE/{self.id}/weather_{kwargs["title"]}/runs/branch_{kwargs["branch_id"]}/point_{kwargs["point_id"]}/'
+            file = f'./outputs/FARSITE/{self.id}/weather_{kwargs["weather"]}/runs/branch_{kwargs["branch_id"]}/point_{kwargs["point_id"]}/'
+
         elif file_type == 'scenarios':
             file = f'./outputs/reports/{self.id}/scenarios.csv'
+            
         elif file_type == 'FARSITE_log':
             file = f'./outputs/reports/{self.id}/FARSITE.log'
+
+        elif file_type == 'MATPOWER_trip':
+            file = f'./outputs/MATPOWER/{self.id}/weather_{kwargs["weather"]}/runs/branch_{kwargs["branch_id"]}/point_{kwargs["point_id"]}/trip_{kwargs["matpower_file"]}'
+
+        elif file_type == 'MATPOWER_degrade':
+            file = f'./outputs/MATPOWER/{self.id}/weather_{kwargs["weather"]}/runs/branch_{kwargs["branch_id"]}/point_{kwargs["point_id"]}/degrade_{kwargs["matpower_file"]}'
+
+        elif file_type == 'powerflow_output_standard':
+            file = f'./outputs/MATPOWER/{self.id}/powerflow_standard.log'
+            remove_old = True
+
+        elif file_type == 'powerflow_output_trip_branch':
+            file = f'./outputs/MATPOWER/{self.id}/weather_{kwargs["weather"]}/runs/branch_{kwargs["branch_id"]}/point_{kwargs["point_id"]}/powerflow_trip_branch.log'
+            remove_old = True
+
+        elif file_type == 'powerflow_output_degrade_branch':
+            file = f'./outputs/MATPOWER/{self.id}/weather_{kwargs["weather"]}/runs/branch_{kwargs["branch_id"]}/point_{kwargs["point_id"]}/powerflow_degrade_branch.log'
+            remove_old = True
+            
         else:
             raise ValueError(f'Unsupported file_type: {file_type}')
         
         # Make sure the directory exists
-        directory = os.path.dirname(file)
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+        directory = dirname(file)
+        if not exists(directory):
+            makedirs(directory)
+        
+        # Remove old file if exists
+        if remove_old and isfile(file):
+            remove(file)
         
         return file
 
     def save_records(self):
         
         # If the records file exists, read it into a DataFrame, otherwise create one
-        if os.path.exists(self.records_file):
+        if exists(self.records_file):
             df = pd.read_csv(self.records_file)
             id = df['id'].max() + 1
         else:
@@ -226,6 +275,7 @@ class Config:
             'ignition_points_radius'        : self.ignition_points_radius,
             'scenarios'                     : self.scenarios,
             'scenarios_file'                : self.scenarios_file,
+            'branch_effects'                : self.branch_effects,
             'started'                       : self.started.strftime('%Y-%m-%d %H:%M:%S'),
             'elapsed'                       : 0,
             'status'                        : 'Config Built'
@@ -291,7 +341,7 @@ class Config:
         df.to_csv(self.scenarios_file, index=True)
     
     def read_scenarios(self):
-
+        self.scenarios_file = self.generate_file_name('scenarios')
         df = pd.read_csv(self.scenarios_file, index_col=[0])
 
         return df

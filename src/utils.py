@@ -93,7 +93,8 @@ def traverse_branch(topology, geod, points_number, points_distance):
         if feature['geometry']['type'] == 'LineString': # check if feature is a branch
             
             branch_points = []
-            branch_id = feature['properties']['branch']
+            properties = feature['properties']
+            branch_id, fbus, tbus = properties['branch'], properties['fbus'], properties['tbus']
             branch_line = shape(feature['geometry'])
 
             # Calculate the Geodesic length in meters
@@ -126,7 +127,7 @@ def traverse_branch(topology, geod, points_number, points_distance):
                 point = branch_line.interpolate(distance)
                 branch_points.append(point)
             
-            points.append({"branch_id": branch_id, "branch_points": branch_points})
+            points.append({"branch_id": branch_id, "branch_points": branch_points, "fbus": fbus, "tbus": tbus})
             
     return points
 
