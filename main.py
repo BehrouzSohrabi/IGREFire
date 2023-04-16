@@ -20,8 +20,9 @@ python main.py
 Author:
 Date:
 """
-
 import sys
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from src.analysis import Analysis
 from src.config import Config
@@ -31,11 +32,11 @@ if __name__ == '__main__':
 
     # Analysis Default Config Inputs
     # config = Config(
-    #     analysis_run_title = 'IEEE BUS 30 Basic Run - High Resolution',
+    #     analysis_run_title = 'IEEE BUS 30 Basic Run - 4 Wind Directions',
     # )
 
     # Load config by ID
-    config = Config(id=2)
+    config = Config(id=16)
 
     # Validate and build the config
     config.build()
@@ -52,7 +53,6 @@ if __name__ == '__main__':
 
         # Run individual steps of the analysis
         # analysis._generate_inputs()
-        # analysis._run_simulations()
+        analysis._run_simulations()
         # analysis._prepare_matpower()
-        analysis._run_powerflow()
-        # analysis._visualize_results()
+        # analysis._run_powerflow()

@@ -29,7 +29,7 @@ class Config:
         farsite_perimeter_resolution (int): Resolution of FARSITE perimeters in meters (must be >= landscape resolution).
         farsite_time_step (int): Fire spread progression steps in minutes.
         fuel_moistures (list): Fuel moisture profiles for each fuel model in the LCP file.
-        weather_files (dict): Dictionary of CSV files containing weather data. The keys will be displayed in scenario results. Can be obtained from https://nsrdb.nrel.gov/data-viewer (USA & Americas (60min / 4km / 2021))
+        weather_files (dict): Dictionary of CSV files containing weather data. The keys will be displayed in scenario results. Can be obtained from https://nsrdb.nrel.gov/data-viewer (USA & Americas (60min / 4km / 2021)). Blank to create synthetic extreme weather stream.
         farsite_start (int): FARSITE start date row ID in weather files. (default = 0),
         farsite_burn_periods (int): FARSITE duration. The number of hour rows to include in the simulation (default = 96),
         barriers_file (str, optional): Path to the optional shapefile containing barriers. Defaults to an empty string.
@@ -75,9 +75,9 @@ class Config:
         self.farsite_perimeter_resolution = int(load_from.get('farsite_perimeter_resolution', 60))
         self.farsite_time_step            = int(load_from.get('farsite_time_step', 60))
         self.farsite_start                = int(load_from.get('farsite_start', 0))
-        self.farsite_burn_periods         = int(load_from.get('farsite_burn_periods', 120))
+        self.farsite_burn_periods         = int(load_from.get('farsite_burn_periods', 96))
         self.fuel_moistures               = ast.literal_eval(load_from.get('fuel_moistures', '[[0, 6, 7, 8, 60, 90]]'))
-        self.weather_files                = ast.literal_eval(load_from.get('weather_files', '{"Summer": "data/weather/38.45_-120.90_2021_summer.csv"}'))
+        self.weather_files                = ast.literal_eval(load_from.get('weather_files', '{}'))
         self.barriers_file                = load_from.get('barriers_file', None)
         self.crown_fire_method            = load_from.get('crown_fire_method', 'Finney')
         self.ignition_points_number       = int(load_from.get('ignition_points_number', 1))

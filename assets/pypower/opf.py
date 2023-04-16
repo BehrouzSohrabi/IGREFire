@@ -187,5 +187,4 @@ def opf(*args):
     results['et'] = et
     results['success'] = success
     results['raw'] = raw
-
     return results

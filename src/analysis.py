@@ -4,7 +4,6 @@ from .inputs import Inputs
 from .FARSITE import FARSITE
 from .MATPOWER import MATPOWER
 from .powerflow import PowerFlow
-from .report import Report
 from .utils import callback
 
 class Analysis:
@@ -27,13 +26,8 @@ class Analysis:
         self.powerflow = PowerFlow(self.config)
         self.powerflow.run()
 
-    def _visualize_results(self):
-        self.report = Report(self.config)
-        self.report.visualize()
-
     def run(self):
         self._generate_inputs()
         self._run_simulations()
         self._prepare_matpower()
         self._run_powerflow()
-        self._visualize_results()

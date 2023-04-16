@@ -1,10 +1,10 @@
-import json
 import shapefile
 import string
 import pandas as pd
 from shapely.geometry import Point
+from datetime import datetime, timedelta
 
-from .utils import cloud_cover_mapping, traverse_branch, arrays_to_string, callback
+from .utils import cloud_cover_mapping, wind_direction_curve, wind_speed_curve, temperature_curve, humidity_curve, traverse_branch, arrays_to_string, callback
 from .messages import *
 
 class Inputs:
@@ -66,48 +66,30 @@ class Inputs:
         return ignition_files
     
     def _create_weather_stream(self):
-
-        weather_files = []
-
-        for weather, file in self.config.weather_files.items():
-
-            # Select the rows based on farsite_start and farsite_burn_periods
-            df = pd.read_csv(file, skiprows=2)
-            df = df.iloc[self.config.farsite_start : self.config.farsite_start + self.config.farsite_burn_periods]
-
-            # populate input data
-            raws = []
-            burn_periods = []
-            last_day = 0
-            for _, row in df.iterrows():
-                raws.append([
-                    f"{int(row['Year'])}",
-                    f"{int(row['Month']):02}",
-                    f"{int(row['Day']):02}",
-                    f"{int(row['Hour']):02}00 {row['Temperature']:.2f}",
-                    f"{row['Relative Humidity']:.2f}",
-                    f"{row['Precipitable Water']/100:.2f}",
-                    f"{round(row['Wind Speed']*10)}",
-                    f"{round(row['Wind Direction'])}",
-                    f"{cloud_cover_mapping[row['Cloud Type']]:.2f}"
+        
+        # Calculate Burn Periods which is checked at each weather stream row
+        def calculate_burn_periods(burn_periods, last_day, day, month):
+            if day != last_day:
+                last_day = day
+                burn_periods.append([
+                    f"{int(month)}",
+                    f"{int(day)}",
+                    "0",
+                    "2359"
                 ])
-                if row['Day'] != last_day:
-                    last_day = row['Day']
-                    burn_periods.append([
-                        f"{int(row['Month'])}",
-                        f"{int(row['Day'])}",
-                        "0",
-                        "2359"
-                    ])
+            return burn_periods, last_day
+
+        # Write and return weather stream raws summary
+        def write_raws(weather_summary, weather_title, raws, elevation, burn_periods):
 
             # Read the input template file
             with open(self.config.FARSITE_raws_template, 'r') as f:
                 template = string.Template(f.read())
             
             # Substitute the placeholders with the actual values and Write the output to a new file
-            file_name = self.config.generate_file_name('weather', weather=weather)
+            file_name = self.config.generate_file_name('weather', weather=weather_title)
             params = {
-                'elevation': self._read_elevation(file),
+                'elevation': elevation,
                 'rows_length': len(raws),
                 'rows': arrays_to_string(raws)
             }
@@ -115,19 +97,98 @@ class Inputs:
                 f.write(template.substitute(params))
 
             # Weather Files Metadata
-            weather_files.append({
-                'Weather' : weather,
+            weather_summary.append({
+                'Weather' : weather_title,
                 'Weather File': file_name,
                 'Burn Periods': burn_periods
             })
 
-        return weather_files
+            return weather_summary
 
-    def _create_FARSITE_input(self, weather_files):
+        # Summary of the generated weather files
+        weather_summary = []
+        
+        # Using provided weather stream
+        if self.config.weather_files:
+            for weather_title, file in self.config.weather_files.items():
+
+                # Select the rows based on farsite_start and farsite_burn_periods
+                df = pd.read_csv(file, skiprows=2)
+                df = df.iloc[self.config.farsite_start : self.config.farsite_start + self.config.farsite_burn_periods]
+
+                # populate input data
+                raws = []
+                burn_periods = []
+                last_day = 0
+                elevation = self._read_elevation(file)
+
+                for _, row in df.iterrows():
+                    raws.append([
+                        f"{int(row['Year'])}",
+                        f"{int(row['Month']):02}",
+                        f"{int(row['Day']):02}",
+                        f"{int(row['Hour']):02}00",
+                        f"{row['Temperature']:.2f}",
+                        f"{row['Relative Humidity']:.2f}",
+                        f"{row['Precipitable Water']/100:.2f}",
+                        f"{round(row['Wind Speed'])}",
+                        f"{round(row['Wind Direction'])}",
+                        f"{cloud_cover_mapping[row['Cloud Type']]:.2f}"
+                    ])
+                    burn_periods, last_day = calculate_burn_periods(burn_periods, last_day, row['Day'], row['Month'])
+
+                # Write and return summary
+                weather_summary = write_raws(weather_summary, weather_title, raws, elevation, burn_periods)
+
+        # Create Synthetic Data
+        else:
+            
+            hours = 7*24
+            start_date = datetime.strptime('2023-04-01', '%Y-%m-%d')
+            wind_directions = {
+                'N': 0,
+                'E': 90,
+                'S': 180,
+                'W': 270
+            }
+            for weather_title, direction in wind_directions.items():
+
+                # populate input data
+                raws = []
+                burn_periods = []
+                last_day = 0
+                elevation = 200
+
+                for i in range(hours):
+                    date = start_date + timedelta(hours=i)
+                    year = date.year
+                    month = date.month
+                    day = date.day
+                    hour = date.hour
+                    raws.append([
+                        f"{int(year)}",
+                        f"{int(month):02}",
+                        f"{int(day):02}",
+                        f"{int(hour):02}00",
+                        f"{temperature_curve(i):.2f}",
+                        f"{humidity_curve(i):.2f}",
+                        "0.00",
+                        f"{round(wind_speed_curve(i))}",
+                        f"{round(wind_direction_curve(direction))}",
+                        "0.00"
+                    ])
+                    burn_periods, last_day = calculate_burn_periods(burn_periods, last_day, day, month)
+
+                # Write and return summary
+                weather_summary = write_raws(weather_summary, weather_title, raws, elevation, burn_periods)
+        
+        return weather_summary
+
+    def _create_FARSITE_input(self, weather_summary):
 
         input_files = []
 
-        for weather_file in weather_files:
+        for weather_file in weather_summary:
 
             # Read the input template file
             with open(self.config.FARSITE_input_template, 'r') as f:

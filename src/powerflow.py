@@ -1,3 +1,6 @@
+import numpy as np
+import pandas as pd
+
 from .messages import *
 from .utils import callback, progress_bar
 
@@ -14,11 +17,49 @@ class PowerFlow:
         
     def run(self):
 
+        def process_scenario(config, standard_output, row):
+            scenario_data = {}
+            
+            # Run power flow analysis for the scenario with the modified MATPOWER file
+            _, extension, case_name = config.read_MATPOWER_path()
+            for branch_effect in config.branch_effects:
+
+                # Run a Standard Powerflow
+                MATPOWER_file = config.generate_file_name(
+                    f'MATPOWER_{branch_effect}',
+                    weather=row['Weather'],
+                    branch_id=row['Branch'],
+                    point_id=row['Ignition Point'],
+                    matpower_file=f'{case_name}{extension}')
+                output_file = config.generate_file_name(
+                    f'powerflow_output_{branch_effect}_branch',
+                    weather=row['Weather'],
+                    branch_id=row['Branch'],
+                    point_id=row['Ignition Point']
+                )
+                scenario_output = runopf(MATPOWER_file, fname=output_file)
+
+                # Extract loads on each bus from standard scenario with no isolate bus
+                loads = {int(load[0]): load[2] for load in standard_output['bus']}
+                gen_dict = {int(gen[0]): gen[1] for gen in scenario_output['gen']}
+                outages = {bus: gen_dict.get(bus, load) for bus, load in loads.items()}
+                
+                # Save Bus Loads and Outages
+                total_outage = 0
+                for bus, load in loads.items():
+                    outage = outages.get(bus, load)
+                    total_outage += outage
+                    scenario_data[f'Bus Load {bus}'] = load
+                    scenario_data[f'Bus Outage {bus}'] = outage
+                scenario_data['Total Outage'] = total_outage
+
+            return scenario_data
+
+        # Start running powerflow analysis
         callback('update', POWERFLOW_STANDARD)
 
         # Run standard power flow analysis with the initial MATPOWER file
         output = self.config.generate_file_name('powerflow_output_standard')
-
         standard_output = runopf(self.config.test_system_matpower, fname=output)
 
         callback('update', POWERFLOW_SCENARIOS)
@@ -26,47 +67,30 @@ class PowerFlow:
         print() # wrap progress bar
 
         # Iterate over scenarios
+        scenario_list = []
         for index, row in self.scenarios.iterrows():
 
             # Show progress bar
             id = index+1
-            if id != 1: continue
             description = POWERFLOW_SCENARIOS_DESCRIPTION.format(id, row["Branch"], row["Ignition Point"], row["Weather"])
             progress_bar(id, self.config.scenarios, prefix='Progress:', description=description)
 
-            # Run power flow analysis for the scenario with the modified MATPOWER file
-            _, extension, case_name = self.config.read_MATPOWER_path()
-            for branch_effect in self.config.branch_effects:
-                MATPOWER_file = self.config.generate_file_name(f'MATPOWER_{branch_effect}', weather=row['Weather'], branch_id=row['Branch'], point_id=row['Ignition Point'], matpower_file=f'{case_name}{extension}')
-                output_file = self.config.generate_file_name(f'powerflow_output_{branch_effect}_branch', weather=row['Weather'], branch_id=row['Branch'], point_id=row['Ignition Point'])
-                scenario_output = runopf(MATPOWER_file, fname=output_file)
-
-                # Use the successful scenario
-                if scenario_output['success']:
-                    break
-            
-            # print(scenario_output['order'])
-
-            # dict_keys(['baseMVA', 'bus', 'gen', 'branch', 'gencost', 'areas', 'order', 'om', 'x', 'mu', 'f', 'var', 'lin', 'nln', 'et', 'success', 'raw'])
-
-            # if not scenario_output['success']:
-                # print(scenario_output['success'])
-
-            # Append analysis outputs to scenario df
-            # for key, value in affected_lines.items():
-                # self.scenarios.at[index, f'Affect Branch {key}'] = value
-            
-            # Compare to the standard powerflow
-            # Find Branches Differences
-            # Find Bus Generation Differences
-    
-            # break # TEST for the first point
+            scenario_data = process_scenario(self.config, standard_output, row)
+            scenario_list.append(scenario_data)
     
         print() # wrap progress bar
 
-        # Update Analysis Status
-        callback('update', POWERFLOW_FINISHED)
+        # Drop any old columns
+        cols_to_remove = self.scenarios.filter(regex='^(Bus Load|Bus Outage|Total Outage)').columns
+        self.scenarios = self.scenarios.drop(columns=cols_to_remove)
 
-        # Update Analysis Records
+        # Only add columns from scenario_df that do not already exist
+        scenario_df = pd.DataFrame(scenario_list)
+        self.scenarios = pd.concat([self.scenarios, scenario_df.loc[:, ~scenario_df.columns.isin(self.scenarios.columns)]], axis=1)
+
+        # Update Analysis Records with new powerflow output data (loads, outages, and total outages)
         self.scenarios.to_csv(self.config.scenarios_file, index=True)
         self.config.update_record(status='Powerflow Finished')
+
+        # Update Analysis Status
+        callback('update', POWERFLOW_FINISHED)

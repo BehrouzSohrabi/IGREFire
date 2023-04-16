@@ -191,6 +191,7 @@ def opf(args=sys.argv[1:]):
         r = runopf_w_res(casedata, ppopt, fname, solvedcase)
     else:
         r = runopf(casedata, ppopt, fname, solvedcase)
+
     exit(r['success'])
 
 

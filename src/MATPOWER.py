@@ -1,4 +1,5 @@
 import rasterio
+import pandas as pd
 import numpy as np
 import string
 
@@ -92,7 +93,7 @@ class MATPOWER:
 
         # Iterate over branches to check if their nodes were affected
         for index, branch in enumerate(branches, start=1):
-            fbus, tbus = branch[0], branch[1]
+            fbus, tbus = int(branch[0]), int(branch[1])
             affected_nodes.setdefault(fbus, False)
             affected_nodes.setdefault(tbus, False)
             if index in affected_branches and affected_branches[index]:
@@ -137,7 +138,7 @@ class MATPOWER:
             slack_bus_id = [bus[0] for bus in buses if bus[1] == 3][0]
             isolated_nodes = [bus_id for bus_id in isolated_nodes if bus_id != slack_bus_id]
 
-            # Modify buses
+            # Modify buses and remove isolated buses
             modified_buses = [bus for bus in buses if bus[0] not in isolated_nodes]
 
             # Modify generator data
@@ -217,15 +218,34 @@ class MATPOWER:
     # Match topology GeoJSON and FARSITE raster outputs
     def prepare(self):
         
+        def process_scenario(affected_branches, affected_nodes):
+            scenario_data = {}
+
+            # Append affected branches info to scenario df
+            for idx, value in affected_branches.items():
+                scenario_data[f'Affect Branch {idx}'] = value
+
+            # Append affected nodes info to scenario df
+            for idx, value in affected_nodes.items():
+                scenario_data[f'Affect Node {idx}'] = value
+
+            scenario_data['# Affected Branches'] = int(sum(value for value in affected_branches.values() if value is True))
+            scenario_data['# Affected Nodes'] = int(sum(value for value in affected_nodes.values() if value is True))
+
+            return scenario_data
+
+        # Start preparing MATPOWER files
         callback('update', MATPOWER_PREPARATION_STARTED)
 
         print() # wrap progress bar
 
         # Iterate over scenarios
+        scenario_list = []
         for index, row in self.scenarios.iterrows():
 
             # Show progress bar
             id = index+1
+            # if id != 1: continue
             description = MATPOWER_PREPARATION_DESCRIPTION.format(id, row["Branch"], row["Ignition Point"], row["Weather"])
             progress_bar(id, self.config.scenarios, prefix='Progress:', description=description)
 
@@ -234,22 +254,25 @@ class MATPOWER:
             affected_branches = self._branches_on_fire(raster_file)
             affected_nodes = self._find_affected_nodes(affected_branches)
 
-            # generate a modified MATPOWER File for the scenario
+            # Generate a modified MATPOWER File for the scenario
             self._generate_matpower(row, affected_branches)
 
-            # Append affected branches info to scenario df
-            for key, value in affected_branches.items():
-                self.scenarios.at[index, f'Affect Branch {key}'] = value
-
-            # Append affected nodes info to scenario df
-            for key, value in affected_nodes.items():
-                self.scenarios.at[index, f'Affect Node {key}'] = value
+            scenario_data = process_scenario(affected_branches, affected_nodes)
+            scenario_list.append(scenario_data)
 
         print() # wrap progress bar
 
-        # Update Analysis Status
-        callback('update', MATPOWER_PREPARATION_FINISHED)
+        # Drop any old columns
+        cols_to_remove = self.scenarios.filter(regex='^(# Affected|Affect)').columns
+        self.scenarios = self.scenarios.drop(columns=cols_to_remove)
 
-        # Update Analysis Records
+        # Only add columns from scenario_df that do not already exist
+        scenario_df = pd.DataFrame(scenario_list)
+        self.scenarios = pd.concat([self.scenarios, scenario_df.loc[:, ~scenario_df.columns.isin(self.scenarios.columns)]], axis=1)
+
+        # Update Analysis Records with new raster and geojson overlap output data (affecting nodes and branches)
         self.scenarios.to_csv(self.config.scenarios_file, index=True)
         self.config.update_record(status='Affected Branches Finished')
+
+        # Update Analysis Status
+        callback('update', MATPOWER_PREPARATION_FINISHED)
