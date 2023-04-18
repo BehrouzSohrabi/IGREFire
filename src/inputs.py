@@ -141,17 +141,18 @@ class Inputs:
                 weather_summary = write_raws(weather_summary, weather_title, raws, elevation, burn_periods)
 
         # Create Synthetic Data
-        else:
+        elif self.config.weather_conditions:
             
-            hours = 7*24
-            start_date = datetime.strptime('2023-04-01', '%Y-%m-%d')
-            wind_directions = {
-                'N': 0,
-                'E': 90,
-                'S': 180,
-                'W': 270
-            }
-            for weather_title, direction in wind_directions.items():
+            # Needs update to match any given data as arguments for curve functions in util
+            # sample = {
+            #     "N": {"wind_direction": {"degree":0}},
+            #     "S": {"wind_direction": {"degree":180}}
+            # }
+            
+            hours = self.config.farsite_burn_periods
+            start_date = datetime.strptime(datetime.now().strftime('%Y-%m-%d'), '%Y-%m-%d')
+
+            for weather_title, weather_info in self.config.weather_conditions.items():
 
                 # populate input data
                 raws = []
@@ -174,7 +175,7 @@ class Inputs:
                         f"{humidity_curve(i):.2f}",
                         "0.00",
                         f"{round(wind_speed_curve(i))}",
-                        f"{round(wind_direction_curve(direction))}",
+                        f"{round(wind_direction_curve(weather_info['wind_direction']['degree']))}",
                         "0.00"
                     ])
                     burn_periods, last_day = calculate_burn_periods(burn_periods, last_day, day, month)

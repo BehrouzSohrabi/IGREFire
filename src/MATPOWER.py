@@ -1,3 +1,4 @@
+from os.path import isfile
 import rasterio
 import pandas as pd
 import numpy as np
@@ -37,6 +38,7 @@ class MATPOWER:
     def _branches_on_fire(self, intensity_raster):
 
         # Read the intensity raster
+        if not isfile(intensity_raster): return {}
         intensity_array = self._read_raster(intensity_raster)
 
         # Find branches affected by fire

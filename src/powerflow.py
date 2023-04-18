@@ -42,7 +42,7 @@ class PowerFlow:
                 # Extract loads on each bus from standard scenario with no isolate bus
                 loads = {int(load[0]): load[2] for load in standard_output['bus']}
                 gen_dict = {int(gen[0]): gen[1] for gen in scenario_output['gen']}
-                outages = {bus: gen_dict.get(bus, load) for bus, load in loads.items()}
+                outages = {bus: gen_dict.get(bus, load) if load > 0 else 0 for bus, load in loads.items()}
                 
                 # Save Bus Loads and Outages
                 total_outage = 0

@@ -31,12 +31,13 @@ from src.GUI import GUI
 if __name__ == '__main__':
 
     # Analysis Default Config Inputs
-    # config = Config(
-    #     analysis_run_title = 'IEEE BUS 30 Basic Run - 4 Wind Directions',
-    # )
+    config = Config(
+        analysis_run_title = 'IEEE BUS 30 Basic Run - Default 2 Wind Directions - Slow - 1Km',
+        ignition_points_distance = 1000
+    )
 
     # Load config by ID
-    config = Config(id=16)
+    # config = Config(id=3) # a simple run
 
     # Validate and build the config
     config.build()
@@ -52,7 +53,7 @@ if __name__ == '__main__':
         # analysis.run()
 
         # Run individual steps of the analysis
-        # analysis._generate_inputs()
+        analysis._generate_inputs()
         analysis._run_simulations()
-        # analysis._prepare_matpower()
-        # analysis._run_powerflow()
+        analysis._prepare_matpower()
+        analysis._run_powerflow()

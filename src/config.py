@@ -28,18 +28,19 @@ class Config:
         landscape_resolution (int): Resolution of the LCP file in meters (usually 30 or 60).
         farsite_perimeter_resolution (int): Resolution of FARSITE perimeters in meters (must be >= landscape resolution).
         farsite_time_step (int): Fire spread progression steps in minutes.
+        farsite_start (int): FARSITE start date row ID in weather files. (default = 0)
+        farsite_burn_periods (int): FARSITE duration. The number of hour rows to include in the simulation using weather stream data (default = 96).
         fuel_moistures (list): Fuel moisture profiles for each fuel model in the LCP file.
         weather_files (dict): Dictionary of CSV files containing weather data. The keys will be displayed in scenario results. Can be obtained from https://nsrdb.nrel.gov/data-viewer (USA & Americas (60min / 4km / 2021)). Blank to create synthetic extreme weather stream.
-        farsite_start (int): FARSITE start date row ID in weather files. (default = 0),
-        farsite_burn_periods (int): FARSITE duration. The number of hour rows to include in the simulation (default = 96),
+        weather_conditions (dict): Dictionary of weather conditions. Key is the title of weather stream. Value is another dict with wind direction and speed, temperature and humidity arguments. Priority is weather_files. (See utils.py)
         barriers_file (str, optional): Path to the optional shapefile containing barriers. Defaults to an empty string.
         crown_fire_method (str): Crown fire calculation method ('Finney' or 'Reinhardt').
-        ignition_points_number (int): Number of ignition points per branch (None for using ignition_points_distance).
-        ignition_points_distance (int, optional): Space between each ignition point on branches in meters (None for using ignition_points_number). Defaults to None.
+        ignition_points_number (int): Number of ignition points per branch (0 for using ignition_points_distance).
+        ignition_points_distance (int): Space between each ignition points on branches in meters (0 for using ignition_points_number).
         ignition_points_radius (int): Radius of the ignition points in meters.
         branch_effects (list): Determines how branches will be affected by wildfire ('trip' and or 'degrade')
-
     """
+
     def __init__(self, id=None, **kwargs):
 
         # Print and intro of the framework
@@ -78,14 +79,15 @@ class Config:
         self.farsite_burn_periods         = int(load_from.get('farsite_burn_periods', 96))
         self.fuel_moistures               = ast.literal_eval(load_from.get('fuel_moistures', '[[0, 6, 7, 8, 60, 90]]'))
         self.weather_files                = ast.literal_eval(load_from.get('weather_files', '{}'))
+        self.weather_conditions           = ast.literal_eval(load_from.get('weather_conditions', '{"N": {"wind_direction": {"degree":0}}, "S": {"wind_direction": {"degree":180}}}'))
         self.barriers_file                = load_from.get('barriers_file', None)
         self.crown_fire_method            = load_from.get('crown_fire_method', 'Finney')
-        self.ignition_points_number       = int(load_from.get('ignition_points_number', 1))
+        self.ignition_points_number       = int(load_from.get('ignition_points_number', 0))
         self.ignition_points_distance     = int(load_from.get('ignition_points_distance', 0))
         self.ignition_points_radius       = int(load_from.get('ignition_points_radius', 30))
+        self.branch_effects               = ast.literal_eval(load_from.get('branch_effects', '["trip"]'))
         self.scenarios                    = int(load_from.get('scenarios', 0))
         self.scenarios_file               = load_from.get('scenarios_file', None)
-        self.branch_effects               = ast.literal_eval(load_from.get('branch_effects', '["trip"]'))
 
         # Centroid of the LCP file
         self.center = self._find_centroid()
@@ -148,9 +150,10 @@ class Config:
             return callback("ValueError", CROWN_FIRE_ERROR)
 
         # Validate ignition_points_number and ignition_points_distance
-        if (self.ignition_points_number <= 0 and self.ignition_points_distance <= 0) \
-            or (self.ignition_points_number > 0 and self.ignition_points_distance > 0):
+        if (self.ignition_points_number <= 0 and self.ignition_points_distance <= 0):
             return callback("ValueError", IGNITION_POINT_VALUE_ERROR)
+        if self.ignition_points_number == 0 and self.ignition_points_distance == 0:
+            self.ignition_points_number = 1
 
         # Validate ignition_points_radius
         if not isinstance(self.ignition_points_radius, int):
@@ -268,14 +271,15 @@ class Config:
             'farsite_burn_periods'          : self.farsite_burn_periods,
             'fuel_moistures'                : str(self.fuel_moistures),
             'weather_files'                 : str(self.weather_files),
+            'weather_conditions'            : str(self.weather_conditions),
             'barriers_file'                 : self.barriers_file,
             'crown_fire_method'             : self.crown_fire_method,
             'ignition_points_number'        : self.ignition_points_number,
             'ignition_points_distance'      : self.ignition_points_distance,
             'ignition_points_radius'        : self.ignition_points_radius,
+            'branch_effects'                : self.branch_effects,
             'scenarios'                     : self.scenarios,
             'scenarios_file'                : self.scenarios_file,
-            'branch_effects'                : self.branch_effects,
             'started'                       : self.started.strftime('%Y-%m-%d %H:%M:%S'),
             'elapsed'                       : 0,
             'status'                        : 'Config Built'

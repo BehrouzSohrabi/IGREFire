@@ -20,34 +20,27 @@ cloud_cover_mapping = {
     12: 10, # Smoke
     -15: 50, # N/A
 }
-def temperature_curve(hour):
-    # Simulate a daily temperature pattern with a sine wave
-    day_hour = hour % 24
-    temp_min = 25
-    temp_max = 40
-    noise = 2
-    daily_temp_variation = (temp_max - temp_min) * np.sin((day_hour - 8) * np.pi / 12) / 2
-    return temp_min + (temp_max - temp_min) / 2 + daily_temp_variation + random.uniform(-noise, noise)
 
-def humidity_curve(hour):
+def wind_direction_curve(degree, noise=10):
+    # Simulate noisy wind direction
+    direction = degree + random.uniform(-noise, noise)
+    return direction if direction >= 0 else 360+direction
+
+def wind_speed_curve(hour, base=10, range=10):
+    # Simulate wind speed changing gradually, between 20 and 35
+    return base + (range * (1 + np.sin((hour - random.uniform(0, 6)) * np.pi / random.uniform(18, 24))) / 2)
+
+def humidity_curve(hour, base=50, range=20, noise=5):
     # Simulate a daily humidity pattern with a sine wave
     day_hour = hour % 24
-    humidity_min = 50
-    humidity_max = 70
-    noise = 5
-    daily_humidity_variation = (humidity_max - humidity_min) * np.sin((day_hour - 18) * np.pi / 12) / 2
-    return humidity_min + (humidity_max - humidity_min) / 2 + daily_humidity_variation + random.uniform(-noise, noise)
+    daily_humidity_variation = range * np.sin((day_hour - 18) * np.pi / 12) / 2
+    return base + range / 2 + daily_humidity_variation + random.uniform(-noise, noise)
 
-def wind_speed_curve(hour):
-    # Simulate wind speed changing gradually, between 20 and 35
-    base_speed = 10
-    speed_range = 10
-    return base_speed + (speed_range * (1 + np.sin((hour - random.uniform(0, 6)) * np.pi / random.uniform(18, 24))) / 2)
-
-def wind_direction_curve(wind_degree):
-    # Simulate noisy wind direction
-    direction = wind_degree + random.uniform(-10, 10)
-    return direction if direction >= 0 else 360+direction
+def temperature_curve(hour, base=25, range=15, noise=2):
+    # Simulate a daily temperature pattern with a sine wave
+    day_hour = hour % 24
+    daily_temp_variation = range * np.sin((day_hour - 8) * np.pi / 12) / 2
+    return base + range / 2 + daily_temp_variation + random.uniform(-noise, noise)
 
 def arrays_to_string(arrays):
     lines = [' '.join(map(str, row)) for row in arrays]

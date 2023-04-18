@@ -27,7 +27,7 @@ FARSITE_TIMESTEP_ERROR = "farsite_time_step must be an integer."
 FUEL_MOISTURES_ERROR = "fuel_moistures must be a list of lists."
 WEATHER_FILES_NOT_DICT = "weather_files must be a dictionary."
 CROWN_FIRE_ERROR = "crown_fire_method must be either 'Finney' or 'Reinhardt'."
-IGNITION_POINT_VALUE_ERROR = "Either ignition_points_number or ignition_points_distance must be provided, but not both."
+IGNITION_POINT_VALUE_ERROR = "A value greater than zero for either ignition_points_number or ignition_points_distance must be set."
 IGNITION_POINT_RADIUS_ERROR = "ignition_points_radius must be an integer."
 MATPOWER_LOAD_ERROR = "Invalid MATPOWER file."
 
