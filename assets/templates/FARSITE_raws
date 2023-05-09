@@ -1,4 +1,4 @@
 RAWS_ELEVATION: ${elevation}
-RAWS_UNITS: METRIC
+RAWS_UNITS: Metric
 RAWS: ${rows_length}
 ${rows}
