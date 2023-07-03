@@ -1,5 +1,5 @@
 from .config import Config
-from .analysis import Analysis
+from .main import Analysis
 
 class GUI():
 

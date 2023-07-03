@@ -12,8 +12,9 @@ class Inputs:
     # Class Constructor
     def __init__(self, config):
 
+        config.read_topology()
         self.config = config
-    
+
         # Find and Iterate over the ignition points on each branch
         self.points = traverse_branch(
             config.topology,
@@ -81,7 +82,6 @@ class Inputs:
 
         # Write and return weather stream raws summary
         def write_raws(weather_summary, weather_title, raws, elevation, burn_periods):
-
             # Read the input template file
             with open(self.config.FARSITE_raws_template, 'r') as f:
                 template = string.Template(f.read())
@@ -141,7 +141,7 @@ class Inputs:
                 weather_summary = write_raws(weather_summary, weather_title, raws, elevation, burn_periods)
 
         # Create Synthetic Data
-        elif self.config.weather_conditions:
+        if self.config.weather_conditions:
             
             # Needs update to match any given data as arguments for curve functions in util
             # sample = {

@@ -11,9 +11,8 @@ class PowerFlow:
     # Class Constructor
     def __init__(self, config):
         
+        config.read_scenarios()
         self.config = config
-
-        self.scenarios = self.config.read_scenarios()
         
     def run(self):
 
@@ -46,12 +45,15 @@ class PowerFlow:
                 
                 # Save Bus Loads and Outages
                 total_outage = 0
+                total_load = 0
                 for bus, load in loads.items():
                     outage = outages.get(bus, load)
                     total_outage += outage
+                    total_load += load
                     scenario_data[f'Bus Load {bus}'] = load
                     scenario_data[f'Bus Outage {bus}'] = outage
                 scenario_data['Total Outage'] = total_outage
+                scenario_data['Total Load'] = total_outage
 
             return scenario_data
 
@@ -81,14 +83,14 @@ class PowerFlow:
         print() # wrap progress bar
 
         # Drop any old columns
-        cols_to_remove = self.scenarios.filter(regex='^(Bus Load|Bus Outage|Total Outage)').columns
+        cols_to_remove = self.scenarios.filter(regex='^(Bus Load|Bus Outage|Total Outage|Total Load)').columns
         self.scenarios = self.scenarios.drop(columns=cols_to_remove)
 
         # Only add columns from scenario_df that do not already exist
         scenario_df = pd.DataFrame(scenario_list)
         self.scenarios = pd.concat([self.scenarios, scenario_df.loc[:, ~scenario_df.columns.isin(self.scenarios.columns)]], axis=1)
 
-        # Update Analysis Records with new powerflow output data (loads, outages, and total outages)
+        # Update Analysis Records with new powerflow output data (loads, outages, total outages, and Total Load)
         self.scenarios.to_csv(self.config.scenarios_file, index=True)
         self.config.update_record(status='Powerflow Finished')
 

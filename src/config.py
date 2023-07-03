@@ -41,7 +41,7 @@ class Config:
         branch_effects (list): Determines how branches will be affected by wildfire ('trip' and or 'degrade')
     """
 
-    def __init__(self, id=None, **kwargs):
+    def __init__(self, record_id=None, **kwargs):
 
         # Print and intro of the framework
         callback('header', 'IGREFire')
@@ -55,18 +55,19 @@ class Config:
         self.FARSITE                = './assets/FARSITE/FARSITE'
         self.FARSITE_run_file       = 'FARSITE.run'
         self.FARSITE_intensity_file = '_Intensity.asc'
+        self.FARSITE_remove_files   = ['_ArrivalTime', '_CrownFire', '_FlameLength', '_HeatPerUnitArea', '_Ignitions', '_Perimeters', '_ReactionIntensity', '_SpotGrid', '_Spots', '_SpreadDirection', '_SpreadRate', '_Timings']
         self.intensity_threshold    = .00005
 
         # Create Config from the given arguments, or load from analysis records by id
-        if id is None:
+        if record_id is None:
             load_from = kwargs
             self.started = datetime.now()
         else:
-            load_from = self.load_record(id)
+            load_from = self.load_record(record_id)
             self.started = datetime.strptime(load_from['started'], '%Y-%m-%d %H:%M:%S')
         
         # Analysis Config Attributes
-        self.id                           = id
+        self.id                           = record_id
         self.analysis_run_title           = load_from.get('analysis_run_title', 'Untitled Analysis on IEEE BUS 30')
         self.test_system_topology         = load_from.get('test_system_topology', 'data/grid/IEEE_30_bus_system.geojson')
         self.test_system_matpower         = load_from.get('test_system_matpower', 'data/grid/IEEE_30_bus_system.py')
@@ -74,9 +75,9 @@ class Config:
         self.landscape_bounds             = ast.literal_eval(load_from.get('landscape_bounds', '[-120.7, 37.6, -120, 38.1]'))
         self.landscape_resolution         = int(load_from.get('landscape_resolution', 60))
         self.farsite_perimeter_resolution = int(load_from.get('farsite_perimeter_resolution', 60))
-        self.farsite_time_step            = int(load_from.get('farsite_time_step', 60))
+        self.farsite_time_step            = int(load_from.get('farsite_time_step', 240))
         self.farsite_start                = int(load_from.get('farsite_start', 0))
-        self.farsite_burn_periods         = int(load_from.get('farsite_burn_periods', 96))
+        self.farsite_burn_periods         = int(load_from.get('farsite_burn_periods', 24))
         self.fuel_moistures               = ast.literal_eval(load_from.get('fuel_moistures', '[[0, 6, 7, 8, 60, 90]]'))
         self.weather_files                = ast.literal_eval(load_from.get('weather_files', '{}'))
         self.weather_conditions           = ast.literal_eval(load_from.get('weather_conditions', '{"N": {"wind_direction": {"degree":0}}, "S": {"wind_direction": {"degree":180}}}'))
@@ -104,7 +105,19 @@ class Config:
         root_name, extension = splitext(self.test_system_matpower)
         case_name = basename(root_name)
         return root_name, extension, case_name
+
+    def read_matpower(self):
+        root_name, extension, case_name = self.read_MATPOWER_path()
+        exec(compile(open(root_name + extension).read(), root_name + extension, 'exec'))
+        self.matpower = eval(case_name)()
     
+    def read_topology(self):
+        with open(self.test_system_topology) as f:
+            self.topology = json.load(f)
+
+    def read_record(self):
+        self.record = self.load_record(self.id)
+
     # Validate, Build and Return the config instance
     def build(self):
 
@@ -159,11 +172,8 @@ class Config:
         if not isinstance(self.ignition_points_radius, int):
             return callback("ValueError", IGNITION_POINT_RADIUS_ERROR)
     
-        # Validate and Load Topology
-        # Read GeoJSON file
-        with open(self.test_system_topology) as f:
-            self.topology = json.load(f)
-        # Check if at least one branch exists
+        # Validate and Load Topology. Check if at least one branch exists.
+        self.read_topology()
         branch_found = False
         for feature in self.topology['features']:
             if feature['geometry']['type'] == 'LineString':
@@ -176,9 +186,7 @@ class Config:
 
         # Validate and Load MATPOWER
         try:
-            root_name, extension, case_name = self.read_MATPOWER_path()
-            exec(compile(open(root_name + extension).read(), root_name + extension, 'exec'))
-            self.matpower = eval(case_name)()
+            self.read_matpower()
         except:
             callback("ValueError", MATPOWER_LOAD_ERROR)
 
@@ -208,9 +216,15 @@ class Config:
 
         elif file_type == 'run':
             file = f'./outputs/FARSITE/{self.id}/weather_{kwargs["weather"]}/runs/branch_{kwargs["branch_id"]}/point_{kwargs["point_id"]}/'
+        
+        elif file_type in ['scenarios', 'report_record', 'report_nodes', 'report_lines', 'report_areas']:
+            file = f'./outputs/reports/{self.id}/{file_type}.csv'
 
-        elif file_type == 'scenarios':
-            file = f'./outputs/reports/{self.id}/scenarios.csv'
+        elif file_type == 'scenarios_gis':
+            file = f'./outputs/reports/{self.id}/scenarios.geojson'
+
+        elif file_type == 'report_gis':
+            file = f'./outputs/reports/{self.id}/report.geojson'
             
         elif file_type == 'FARSITE_log':
             file = f'./outputs/reports/{self.id}/FARSITE.log'
@@ -252,13 +266,13 @@ class Config:
         # If the records file exists, read it into a DataFrame, otherwise create one
         if exists(self.records_file):
             df = pd.read_csv(self.records_file)
-            id = df['id'].max() + 1
+            record_id = df['id'].max() + 1
         else:
-            id = 1
+            record_id = 1
 
         # Create the new entry as a dictionary
         new_entry = {
-            'id': id,
+            'id': record_id,
             'analysis_run_title'            : self.analysis_run_title,
             'test_system_topology'          : self.test_system_topology,
             'test_system_matpower'          : self.test_system_matpower,
@@ -296,20 +310,20 @@ class Config:
         # Save the updated records file
         df.to_csv(self.records_file, index=False)
 
-        return id
+        return record_id
     
-    def load_record(self, id, return_row=True):
+    def load_record(self, record_id, return_row=True):
 
         # Load Records File
         df = pd.read_csv(self.records_file).applymap(lambda x: None if pd.isna(x) else x)
 
         # Check if the given row exists
-        if id not in df['id'].values:
-            raise ValueError(RECORD_DOES_NOT_EXIST.format(id))
+        if record_id not in df['id'].values:
+            raise ValueError(RECORD_DOES_NOT_EXIST.format(record_id))
 
         # Return the selected record
         if return_row:
-            return df.loc[df['id'] == id].to_dict(orient='records')[0]
+            return df.loc[df['id'] == record_id].to_dict(orient='records')[0]
         else:
             return df
     
@@ -346,6 +360,4 @@ class Config:
     
     def read_scenarios(self):
         self.scenarios_file = self.generate_file_name('scenarios')
-        df = pd.read_csv(self.scenarios_file, index_col=[0])
-
-        return df
+        self.scenarios = pd.read_csv(self.scenarios_file, index_col=[0])

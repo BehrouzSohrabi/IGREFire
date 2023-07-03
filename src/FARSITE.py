@@ -1,5 +1,6 @@
 import pandas as pd
 import subprocess
+from os import remove, listdir, path
 
 from .messages import *
 from .utils import callback, progress_bar
@@ -9,8 +10,8 @@ class FARSITE:
     # Class Constructor
     def __init__(self, config):
 
+        config.read_scenarios()
         self.config = config
-        self.scenarios = self.config.read_scenarios()
     
     def run_farsite(self, run_dir, description=''):
 
@@ -32,9 +33,17 @@ class FARSITE:
             callback('Exception', FARSITE_ERROR.format(log_contents))
             return None
 
+        # Remove Unnecessary Files
+        for filename in listdir(run_dir):
+            for prefix in self.config.FARSITE_remove_files:
+                if filename.startswith(prefix):
+                    file_path = path.join(run_dir, filename)
+                    remove(file_path)
+                    break
+
         return True
 
-    def run(self):
+    def run(self, impact_file=''):
         
         # Update Analysis Status
         callback('update', FARSITE_SCENARIOS.format(self.config.scenarios))
@@ -50,7 +59,8 @@ class FARSITE:
             progress_bar(id, self.config.scenarios, prefix='Progress:', description=description)
             
             # Run FARSITE Simulation
-            self.run_farsite(row["Run Directory"], description)
+            if (impact_file == ''):
+                self.run_farsite(row["Run Directory"], description)
 
         print() # wrap progress bar
 

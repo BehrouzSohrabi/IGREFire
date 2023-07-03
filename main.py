@@ -24,7 +24,7 @@ import sys
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-from src.analysis import Analysis
+from src.main import Analysis
 from src.config import Config
 from src.GUI import GUI
 
@@ -32,15 +32,18 @@ if __name__ == '__main__':
 
     # Analysis Default Config Inputs
     config = Config(
-        analysis_run_title = 'IEEE BUS 30 Basic Run - Default 2 Wind Directions - Slow - 1Km',
-        ignition_points_distance = 1000
+        analysis_run_title = 'IEEE BUS 30 - 2+4 Weathers - 1Km',
+        test_system_topology = 'data/grid/IEEE_30_bus_system_labeled.geojson',
+        ignition_points_distance = 1000,
+        weather_files = '{"Fall": "data/weather/38.45_-120.90_2021_fall.csv", "Summer": "data/weather/38.45_-120.90_2021_summer.csv"}',
+        weather_conditions = '{"Wind-N": {"wind_direction": {"degree":0}}, "Wind-E": {"wind_direction": {"degree":90}}, "Wind-S": {"wind_direction": {"degree":180}}, "Wind-W": {"wind_direction": {"degree":270}}}'
     )
 
-    # Load config by ID
-    # config = Config(id=3) # a simple run
+    # Load config by record ID
+    config = Config(record_id=7)
 
     # Validate and build the config
-    config.build()
+    # config.build()
 
     # Instantiate Analysis Object
     analysis = Analysis(config)
@@ -53,7 +56,8 @@ if __name__ == '__main__':
         # analysis.run()
 
         # Run individual steps of the analysis
-        analysis._generate_inputs()
-        analysis._run_simulations()
-        analysis._prepare_matpower()
-        analysis._run_powerflow()
+        # analysis._generate_inputs()
+        # analysis._run_simulations('data/grid/IEEE_30_bus_system_check.json')
+        # analysis._prepare_matpower('data/grid/IEEE_30_bus_system_check.json')
+        # analysis._run_powerflow()
+        analysis._report()

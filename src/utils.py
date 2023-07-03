@@ -22,21 +22,25 @@ cloud_cover_mapping = {
 }
 
 def wind_direction_curve(degree, noise=10):
+    return degree
     # Simulate noisy wind direction
     direction = degree + random.uniform(-noise, noise)
     return direction if direction >= 0 else 360+direction
 
 def wind_speed_curve(hour, base=10, range=10):
+    return 10
     # Simulate wind speed changing gradually, between 20 and 35
     return base + (range * (1 + np.sin((hour - random.uniform(0, 6)) * np.pi / random.uniform(18, 24))) / 2)
 
 def humidity_curve(hour, base=50, range=20, noise=5):
+    return 80
     # Simulate a daily humidity pattern with a sine wave
     day_hour = hour % 24
     daily_humidity_variation = range * np.sin((day_hour - 18) * np.pi / 12) / 2
     return base + range / 2 + daily_humidity_variation + random.uniform(-noise, noise)
 
 def temperature_curve(hour, base=25, range=15, noise=2):
+    return 25
     # Simulate a daily temperature pattern with a sine wave
     day_hour = hour % 24
     daily_temp_variation = range * np.sin((day_hour - 8) * np.pi / 12) / 2
@@ -112,7 +116,9 @@ def traverse_branch(topology, geod, points_number, points_distance):
 
     # loop through features and pick point on branches
     for feature in topology['features']:
-        if feature['geometry']['type'] == 'LineString': # check if feature is a branch
+        
+        # check if feature is a branch and escape Links
+        if feature['geometry']['type'].lower() == 'linestring' and feature['properties']['type'].lower() == 'branch':
             
             branch_points = []
             properties = feature['properties']

@@ -3,6 +3,8 @@ import rasterio
 import pandas as pd
 import numpy as np
 import string
+import json
+import random
 
 from .messages import *
 from .utils import callback, progress_bar, traverse_branch
@@ -12,8 +14,10 @@ class MATPOWER:
     # Class Constructor
     def __init__(self, config):
 
+        config.read_topology()
+        config.read_matpower()
+        config.read_scenarios()
         self.config = config
-        self.scenarios = self.config.read_scenarios()
 
         # Interpolate points on each branch
         self.points = traverse_branch(
@@ -35,29 +39,8 @@ class MATPOWER:
         array = raster.read(1)
         return array
 
-    def _branches_on_fire(self, intensity_raster):
-
-        # Read the intensity raster
-        if not isfile(intensity_raster): return {}
-        intensity_array = self._read_raster(intensity_raster)
-
-        # Find branches affected by fire
-        affected_branches = {}
-        branches = self.config.matpower['branch']
-        gens = [int(gen[0]) for gen in self.config.matpower['gen']]
-
-        # Iterate over points on all branches
-        for branch in self.points:
-            branch_key = branch["branch_id"]
-            affected_branches[branch_key] = False
-            for point in branch['branch_points']:
-                row, col = self._point_to_raster_index(point.x, point.y, intensity_array.shape)
-                intensity = intensity_array[row, col]
-                if intensity > self.config.intensity_threshold:
-                    affected_branches[branch_key] = True
-                    break
-
-        # Find disconnected branches that were connected to the affected branches
+    # Find disconnected branches that were connected to the affected branches
+    def _branches_disconnected(self, affected_branches, branches, gens):
         connected_branches = [branch for index, branch in enumerate(branches, start=1) if index not in affected_branches or not affected_branches[index]]
 
         # Create adjacency list
@@ -73,6 +56,7 @@ class MATPOWER:
                 for neighbor in graph.get(node, []):
                     dfs(graph, neighbor, visited)
             return visited
+
         # Find reachable nodes for each head node and merge them
         reachable_nodes = set()
         for head_node in gens:
@@ -84,6 +68,71 @@ class MATPOWER:
                 fbus, tbus = branch[0], branch[1]
                 if fbus not in reachable_nodes or tbus not in reachable_nodes:
                     affected_branches[index] = True
+    
+        return affected_branches
+
+    # Check branches affected by fire
+    def _check_branches_on_fire(self, impact_file, row):
+
+        affected_branches = {}
+        branches = self.config.matpower['branch']
+        gens = [int(gen[0]) for gen in self.config.matpower['gen']]
+
+        source_branch = str(row['Branch'])
+        target_weather = row['Weather']
+
+        # Read Impact File
+        with open(impact_file, 'r') as f:
+            impacts = json.load(f)
+
+        # Find matching weather key
+        for weather_index, sublist in enumerate(impacts["weathers"]):
+            if target_weather in sublist:
+                break
+
+        # Iterate over points on all branches
+        for index, _ in enumerate(branches, start=1):
+            probability = 0
+            if int(source_branch) == index:
+                probability = 100
+            else:
+                for line_index, sublist in enumerate(impacts["impacts"][source_branch]["lines"]):
+                    if index in sublist:
+                        probability = impacts["impacts"][source_branch]["weathers"][weather_index][line_index]
+                        break
+            
+            if probability > random.uniform(0,100):
+                affected_branches[index] = True
+            else:
+                affected_branches[index] = False
+
+        affected_branches = self._branches_disconnected(affected_branches, branches, gens)
+
+        return affected_branches
+    
+    # Find branches affected by fire
+    def _branches_on_fire(self, intensity_raster):
+
+        affected_branches = {}
+        branches = self.config.matpower['branch']
+        gens = [int(gen[0]) for gen in self.config.matpower['gen']]
+
+        # Read the intensity raster
+        if not isfile(intensity_raster): return {}
+        intensity_array = self._read_raster(intensity_raster)
+
+        # Iterate over points on all branches
+        for branch in self.points:
+            branch_key = branch["branch_id"]
+            affected_branches[branch_key] = False
+            for point in branch['branch_points']:
+                row, col = self._point_to_raster_index(point.x, point.y, intensity_array.shape)
+                intensity = intensity_array[row, col]
+                if intensity > self.config.intensity_threshold:
+                    affected_branches[branch_key] = True
+                    break
+
+        affected_branches = self._branches_disconnected(affected_branches, branches, gens)
 
         return affected_branches
 
@@ -218,7 +267,7 @@ class MATPOWER:
             save_matpower(branch_rows, branch_effect, isolated_nodes)
 
     # Match topology GeoJSON and FARSITE raster outputs
-    def prepare(self):
+    def prepare(self, impact_file=''):
         
         def process_scenario(affected_branches, affected_nodes):
             scenario_data = {}
@@ -247,13 +296,16 @@ class MATPOWER:
 
             # Show progress bar
             id = index+1
-            # if id != 1: continue
+            # if id > 1: break
             description = MATPOWER_PREPARATION_DESCRIPTION.format(id, row["Branch"], row["Ignition Point"], row["Weather"])
             progress_bar(id, self.config.scenarios, prefix='Progress:', description=description)
 
-            # Read Intensity.asc file and convert it to a numpy array
+            # Read Intensity.asc file and check for affected branches and nodes
             raster_file = f'{row["Run Directory"]}{self.config.FARSITE_intensity_file}'
-            affected_branches = self._branches_on_fire(raster_file)
+            if impact_file != '':
+                affected_branches = self._check_branches_on_fire(impact_file, row)
+            else:
+                affected_branches = self._branches_on_fire(raster_file)
             affected_nodes = self._find_affected_nodes(affected_branches)
 
             # Generate a modified MATPOWER File for the scenario
