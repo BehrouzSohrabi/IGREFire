@@ -269,3 +269,5 @@ class Inputs:
         # Update Analysis Record
         self.config.save_scenarios(scenarios_run_files)
         self.config.update_record(status='Inputs Ready')
+
+        callback('update', INPUT_GENERATION_GENERATED.format(len(ignition_files)*len(weather_files)))

@@ -1,34 +1,29 @@
 import numpy as np
 import pandas as pd
 import json
+import string
 import ast
 import statistics
 import geopandas as gpd
 from shapely.geometry import Point, LineString, Polygon, box, mapping
 
 from .messages import *
-from .utils import callback, progress_bar
+from .utils import callback, progress_bar, cell_label_generator
 
 class Report:
     
     # Class Constructor
-    def __init__(self, config):
+    def __init__(self, config, area_dx=12, area_dy=12):
         
         config.read_topology()
         config.read_scenarios()
         config.read_record()
         self.config = config
-    
-    def find_feature_by_property(self, property_name, value):
-        for feature in self.config.topology['features']:
-            if feature['properties'].get(property_name) == value:
-                return feature
-        return None
+        
+        self._features_in_areas(area_dx, area_dy)
+        self.weathers = self._attach_weathers()
 
-    def run(self, area_dx=10, area_dy=10):
-
-        areas = self._features_in_areas(area_dx, area_dy)
-        weathers = list(ast.literal_eval(self.config.record['weather_files']).keys()) + list(ast.literal_eval(self.config.record['weather_conditions']).keys())
+    def run(self):
         
         # Risk, Impact, and Vulnerability
         for feature in self.config.topology['features']:
@@ -38,7 +33,7 @@ class Report:
                 branch = feature['properties']['branch']
 
                 # For each weather group
-                for weather in weathers:
+                for weather in self.weathers:
                     Z_bar_j = self.config.scenarios[
                         (self.config.scenarios['Branch'] != branch) &
                         (self.config.scenarios['Weather'] == weather)
@@ -48,53 +43,85 @@ class Report:
                         (self.config.scenarios['Weather'] == weather)
                     ]
                     feature['properties'][f'vulnerability-{weather}'] = Z_bar_j[f'Affect Branch {branch}'].mean()
-                    feature['properties'][f'risk-{weather}'] = Z_j['Total Outage'].mean()
+                    feature['properties'][f'risk-{weather}'] = Z_j['Total Outage'].mean() / Z_j['Total Load'].mean()
                 
                 # AVG
-                feature['properties']['vulnerability-avg'] = sum(feature['properties'][f'vulnerability-{weather}'] for weather in weathers) / len(weathers)
-                feature['properties']['risk-avg'] = sum(feature['properties'][f'risk-{weather}'] for weather in weathers) / len(weathers)
+                feature['properties']['vulnerability-avg'] = sum(feature['properties'][f'vulnerability-{weather}'] for weather in self.weathers) / len(self.weathers)
+                feature['properties']['risk-avg'] = sum(feature['properties'][f'risk-{weather}'] for weather in self.weathers) / len(self.weathers)
 
             # Node
             elif feature['geometry']['type'] == 'Point':
                 node = feature['properties']['bus']
 
                 # For each weather group
-                for weather in weathers:
+                for weather in self.weathers:
                     Z = self.config.scenarios[self.config.scenarios['Weather'] == weather]
                     feature['properties'][f'vulnerability-{weather}'] = Z[f'Affect Node {node}'].mean()
-                    feature['properties'][f'impact-{weather}'] = Z_j[f'Bus Outage {node}'].mean()
+                    
+                    if Z[f'Bus Load {node}'].mean() > 0:
+                        feature['properties'][f'impact-{weather}'] = Z[f'Bus Outage {node}'].mean() / Z[f'Bus Load {node}'].mean()
+                    else:
+                        feature['properties'][f'impact-{weather}'] = 0
 
                 # AVG
-                feature['properties']['vulnerability-avg'] = sum(feature['properties'][f'vulnerability-{weather}'] for weather in weathers) / len(weathers)
-                feature['properties']['impact-avg'] = sum(feature['properties'][f'impact-{weather}'] for weather in weathers) / len(weathers)
+                feature['properties']['vulnerability-avg'] = sum(feature['properties'][f'vulnerability-{weather}'] for weather in self.weathers) / len(self.weathers)
+                feature['properties']['impact-avg'] = sum(feature['properties'][f'impact-{weather}'] for weather in self.weathers) / len(self.weathers)
             
             # Spatial Risk
             elif feature['geometry']['type'] == 'Polygon':
 
                 # For each weather group
-                for weather in weathers + ['avg']:
-                    feature['properties'][f'spatial-risk-{weather}'] = 0
+                for weather in self.weathers + ['avg']:
 
+                    node_contributions, line_contributions = [], []
+                    node_contribution, line_contribution = 0, 0
+
+                    # Gather node contributions
+                    for node in feature['properties']['nodes']:
+                        component = self.find_feature_by_property('bus', node)
+                        node_contributions.append(component['properties'][f'vulnerability-{weather}'] * component['properties'][f'impact-{weather}'])
+
+                    # Gather line contributions
                     for line in feature['properties']['lines']:
                         component = self.find_feature_by_property('branch', line)
                         if component['properties']['type'] == 'LINK': continue
-                        feature['properties'][f'spatial-risk-{weather}'] += component['properties'][f'vulnerability-{weather}'] * component['properties'][f'risk-{weather}']
+                        line_contributions.append(component['properties'][f'vulnerability-{weather}'] * component['properties'][f'risk-{weather}'])
                     
-                    for node in feature['properties']['nodes']:
-                        component = self.find_feature_by_property('bus', node)
-                        feature['properties'][f'spatial-risk-{weather}'] += component['properties'][f'vulnerability-{weather}'] * component['properties'][f'impact-{weather}']
-        
+                    # # Calculate means and standard deviations
+                    # if len(node_contributions) > 0:
+                    #     mean_node = sum(node_contributions) / len(node_contributions)
+                    #     std_dev_node = (sum((x - mean_node) ** 2 for x in node_contributions) / len(node_contributions)) ** 0.5
+                    #     node_contribution = sum(((x - mean_node) / std_dev_node) if std_dev_node != 0 else 0 for x in node_contributions)
+
+                    # if len(line_contributions) > 0:
+                    #     mean_line = sum(line_contributions) / len(line_contributions)
+                    #     std_dev_line = (sum((x - mean_line) ** 2 for x in line_contributions) / len(line_contributions)) ** 0.5
+                    #     line_contribution = sum(((x - mean_line) / std_dev_line) if std_dev_line != 0 else 0 for x in line_contributions)
+
+                    # Calculate min and max values
+                    if len(node_contributions) > 0:
+                        min_node = min(node_contributions)
+                        max_node = max(node_contributions)
+                        node_contribution = sum(((x - min_node) / (max_node - min_node)) if max_node != min_node else 0 for x in node_contributions)
+
+                    if len(line_contributions) > 0:
+                        min_line = min(line_contributions)
+                        max_line = max(line_contributions)
+                        line_contribution = sum(((x - min_line) / (max_line - min_line)) if max_line != min_line else 0 for x in line_contributions)
+                    
+                    # Calculate normalized spatial risk
+                    feature['properties'][f'spatial-risk-{weather}'] = node_contribution + line_contribution
 
         # Resilience Factor
         # For each weather group
         R = {}
-        for weather in weathers:
+        for weather in self.weathers:
             Z = self.config.scenarios[self.config.scenarios['Weather'] == weather]
             Z = Z.copy()
-            Z.loc[:, 'Total Load'] = Z.loc[:, Z.columns.str.startswith('Bus Load')].sum(axis=1) # This line can be removed. It's done in matpower module
             R[f'resilience-{weather}'] = ((Z['Total Load'] - Z['Total Outage']) / Z['Total Load']).mean()
         
         R['resilience-avg'] = statistics.mean(R.values())
+
 
         # Save Results to a CSV file
         metadata = {
@@ -105,23 +132,28 @@ class Report:
         self.config.topology['properties'] = metadata
 
         # Metadata
+        file_records = self.config.generate_file_name('report_record')
         metadata_df = pd.DataFrame(metadata, index=[0])
-        metadata_df.to_csv(self.config.generate_file_name('report_record'), index=False)
+        metadata_df.to_csv(file_records, index=False)
 
         # Lines
+        file_lines = self.config.generate_file_name('report_lines')
         linestring_df = pd.DataFrame([feat['properties'] for feat in self.config.topology['features'] if feat['geometry']['type'] == 'LineString'])
-        linestring_df.to_csv(self.config.generate_file_name('report_lines'), index=False)
+        linestring_df.to_csv(file_lines, index=False)
 
         # Nodes
+        file_nodes = self.config.generate_file_name('report_nodes')
         point_df = pd.DataFrame([feat['properties'] for feat in self.config.topology['features'] if feat['geometry']['type'] == 'Point'])
-        point_df.to_csv(self.config.generate_file_name('report_nodes'), index=False)
+        point_df.to_csv(file_nodes, index=False)
 
         # Areas
+        file_area = self.config.generate_file_name('report_areas')
         polygon_df = pd.DataFrame([feat['properties'] for feat in self.config.topology['features'] if feat['geometry']['type'] == 'Polygon'])
-        polygon_df.to_csv(self.config.generate_file_name('report_areas'), index=False)
+        polygon_df.to_csv(file_area, index=False)
 
         # Save the GeoJSON data to a file
-        with open(self.config.generate_file_name('report_gis'), 'w') as f:
+        file_gis = self.config.generate_file_name('report_gis')
+        with open(file_gis, 'w') as f:
             json.dump(self.config.topology, f)
         
         # Save scenarios GeoJSON data to a file
@@ -132,8 +164,17 @@ class Report:
             point = json.loads(json.dumps(mapping(point)))
             features.append({"type": "Feature", "properties": properties, "geometry": point})
         feature_collection = {"type": "FeatureCollection", "features": features}
-        with open(self.config.generate_file_name('scenarios_gis'), 'w') as f:
+        file_scenarios = self.config.generate_file_name('scenarios_gis')
+        with open(file_scenarios, 'w') as f:
             json.dump(feature_collection, f)
+
+        callback('', '\nAnalysis Finished.\nGenerated Reports:')
+        print('  - Analysis Records Updated: \t' + file_records)
+        print('  - Lines Metrics Dataframe: \t' + file_lines)
+        print('  - Nodes Metrics Dataframe: \t' + file_nodes)
+        print('  - Areas Metrics Dataframe: \t' + file_area)
+        print('  - Ignitions Points geoJSON: \t' + file_scenarios)
+        print('  - Topology Metrics geoJSON: \t' + file_gis)
 
     # Break down json dict in features into separate columns
     def _normalize_json_column(self, df, keys):
@@ -150,10 +191,12 @@ class Report:
         dy = (ymax - ymin) / ndy
         grid = []
 
-        for x in np.arange(xmin, xmax, dx):
+        for xi, x in enumerate(np.arange(xmin, xmax, dx)):
+            gen = cell_label_generator()
             for y in np.arange(ymin, ymax, dy):
                 cell = box(x, y, x+dx, y+dy)
-                grid.append({"box": cell, "nodes": [], "lines": []})
+                label = next(gen) + str(int(xi + 1))
+                grid.append({"box": cell, "nodes": [], "lines": [], "label": label})
 
         # Convert GeoJSON features to Shapely geometries
         points = [{'id': feat['properties']['bus'], 'geometry': Point(feat['geometry']['coordinates'])} for feat in self.config.topology['features'] if feat['geometry']['type'] == 'Point']
@@ -171,7 +214,16 @@ class Report:
                 "properties": {
                     "nodes": cell['nodes'],
                     "lines": cell['lines'],
+                    "label": cell['label']
                 }
             })
-        
-        return grid
+    
+    # Make a list of weathers used in the analysis
+    def _attach_weathers(self):
+        return list(ast.literal_eval(self.config.record['weather_files']).keys()) + list(ast.literal_eval(self.config.record['weather_conditions']).keys())
+
+    def find_feature_by_property(self, property_name, value):
+        for feature in self.config.topology['features']:
+            if feature['properties'].get(property_name) == value:
+                return feature
+        return None

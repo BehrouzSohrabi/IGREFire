@@ -5,6 +5,7 @@ from .messages import *
 from .utils import callback, progress_bar
 
 from assets.pypower.runopf import runopf
+from assets.pypower.rundcopf import rundcopf
 
 class PowerFlow:
     
@@ -36,7 +37,12 @@ class PowerFlow:
                     branch_id=row['Branch'],
                     point_id=row['Ignition Point']
                 )
-                scenario_output = runopf(MATPOWER_file, fname=output_file)
+
+                # Run AC or DC OPF
+                if config.OPF == 'AC':
+                    scenario_output = runopf(MATPOWER_file, fname=output_file)
+                else:
+                    scenario_output = rundcopf(MATPOWER_file, fname=output_file)
 
                 # Extract loads on each bus from standard scenario with no isolate bus
                 loads = {int(load[0]): load[2] for load in standard_output['bus']}
@@ -53,7 +59,7 @@ class PowerFlow:
                     scenario_data[f'Bus Load {bus}'] = load
                     scenario_data[f'Bus Outage {bus}'] = outage
                 scenario_data['Total Outage'] = total_outage
-                scenario_data['Total Load'] = total_outage
+                scenario_data['Total Load'] = total_load
 
             return scenario_data
 
@@ -70,12 +76,12 @@ class PowerFlow:
 
         # Iterate over scenarios
         scenario_list = []
-        for index, row in self.scenarios.iterrows():
+        for index, row in self.config.scenarios.iterrows():
 
             # Show progress bar
             id = index+1
             description = POWERFLOW_SCENARIOS_DESCRIPTION.format(id, row["Branch"], row["Ignition Point"], row["Weather"])
-            progress_bar(id, self.config.scenarios, prefix='Progress:', description=description)
+            progress_bar(id, self.config.scenarios_rows, prefix='Progress:', description=description)
 
             scenario_data = process_scenario(self.config, standard_output, row)
             scenario_list.append(scenario_data)
@@ -83,15 +89,15 @@ class PowerFlow:
         print() # wrap progress bar
 
         # Drop any old columns
-        cols_to_remove = self.scenarios.filter(regex='^(Bus Load|Bus Outage|Total Outage|Total Load)').columns
-        self.scenarios = self.scenarios.drop(columns=cols_to_remove)
+        cols_to_remove = self.config.scenarios.filter(regex='^(Bus Load|Bus Outage|Total Outage|Total Load)').columns
+        self.config.scenarios = self.config.scenarios.drop(columns=cols_to_remove)
 
         # Only add columns from scenario_df that do not already exist
         scenario_df = pd.DataFrame(scenario_list)
-        self.scenarios = pd.concat([self.scenarios, scenario_df.loc[:, ~scenario_df.columns.isin(self.scenarios.columns)]], axis=1)
+        self.config.scenarios = pd.concat([self.config.scenarios, scenario_df.loc[:, ~scenario_df.columns.isin(self.config.scenarios.columns)]], axis=1)
 
         # Update Analysis Records with new powerflow output data (loads, outages, total outages, and Total Load)
-        self.scenarios.to_csv(self.config.scenarios_file, index=True)
+        self.config.scenarios.to_csv(self.config.scenarios_file, index=True)
         self.config.update_record(status='Powerflow Finished')
 
         # Update Analysis Status

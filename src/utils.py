@@ -1,5 +1,7 @@
 import sys
 from shapely.geometry import shape
+import itertools
+import string
 import numpy as np
 import random
 
@@ -72,6 +74,27 @@ def callback(type, message, width = 80, separator = True):
         print('=' * width)
         print(' '*space + message)
         print('=' * width)
+    elif type == 'header-top':
+        # framework header
+        if width < max_width:
+            width = int(max_width*1.1)
+        space = (width - max_width) // 2
+        print('=' * width)
+        print(' '*space + message)
+    elif type == 'header-sub':
+        # framework header
+        if width < max_width:
+            width = int(max_width*1.1)
+        space = (width - max_width) // 2
+        print(' '*space + message)
+        print('=' * width)
+    elif type == 'update-sub':
+        # status update
+        print(message)
+        if width < max_width:
+            width = int(max_width*1.1)
+        if separator:
+            print('-' * width)
     else:
         # status update
         if width < max_width:
@@ -159,3 +182,29 @@ def traverse_branch(topology, geod, points_number, points_distance):
             
     return points
 
+def find_links_connections(links, nodes):
+
+    graph = {node: [] for node in nodes}
+    for link in links:
+        graph[link[0]].append(link[1])
+        graph[link[1]].append(link[0])
+
+    def bfs(start):
+        queue = [start]
+        while queue:
+            node = queue.pop(0)
+            for neighbor in graph[node]:
+                if not nodes[neighbor]:
+                    nodes[neighbor] = True
+                    queue.append(neighbor)
+
+    for node, value in nodes.items():
+        if value:
+            bfs(node)
+
+    return nodes
+
+def cell_label_generator():
+    for size in itertools.count(1):
+        for s in itertools.product(string.ascii_uppercase, repeat=size):
+            yield "".join(s)

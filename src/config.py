@@ -39,12 +39,13 @@ class Config:
         ignition_points_distance (int): Space between each ignition points on branches in meters (0 for using ignition_points_number).
         ignition_points_radius (int): Radius of the ignition points in meters.
         branch_effects (list): Determines how branches will be affected by wildfire ('trip' and or 'degrade')
+        OPF (str): Determines the method to run OPF ('AC' or 'DC')
     """
 
     def __init__(self, record_id=None, **kwargs):
 
         # Print and intro of the framework
-        callback('header', 'IGREFire')
+        # callback('header', 'IGREFire')
 
         # Static Attributes
         self.records_file           = './outputs/records.csv'
@@ -65,7 +66,7 @@ class Config:
         else:
             load_from = self.load_record(record_id)
             self.started = datetime.strptime(load_from['started'], '%Y-%m-%d %H:%M:%S')
-        
+
         # Analysis Config Attributes
         self.id                           = record_id
         self.analysis_run_title           = load_from.get('analysis_run_title', 'Untitled Analysis on IEEE BUS 30')
@@ -86,8 +87,9 @@ class Config:
         self.ignition_points_number       = int(load_from.get('ignition_points_number', 0))
         self.ignition_points_distance     = int(load_from.get('ignition_points_distance', 0))
         self.ignition_points_radius       = int(load_from.get('ignition_points_radius', 30))
+        self.OPF                          = load_from.get('OPF', 'AC').upper()
         self.branch_effects               = ast.literal_eval(load_from.get('branch_effects', '["trip"]'))
-        self.scenarios                    = int(load_from.get('scenarios', 0))
+        self.scenarios_rows               = int(load_from.get('scenarios_rows', 0))
         self.scenarios_file               = load_from.get('scenarios_file', None)
 
         # Centroid of the LCP file
@@ -291,8 +293,9 @@ class Config:
             'ignition_points_number'        : self.ignition_points_number,
             'ignition_points_distance'      : self.ignition_points_distance,
             'ignition_points_radius'        : self.ignition_points_radius,
+            'OPF'                           : self.OPF,
             'branch_effects'                : self.branch_effects,
-            'scenarios'                     : self.scenarios,
+            'scenarios_rows'                : self.scenarios_rows,
             'scenarios_file'                : self.scenarios_file,
             'started'                       : self.started.strftime('%Y-%m-%d %H:%M:%S'),
             'elapsed'                       : 0,
@@ -349,11 +352,11 @@ class Config:
 
         # Save a table of all FARSITE simulation scenarios
         df = pd.DataFrame(scenarios)
-        self.scenarios = df.shape[0]
+        self.scenarios_rows = df.shape[0]
         self.scenarios_file = self.generate_file_name('scenarios')
 
         # Update Analysis Records
-        self.update_record(scenarios=self.scenarios, scenarios_file=self.scenarios_file)
+        self.update_record(scenarios=self.scenarios_rows, scenarios_file=self.scenarios_file)
 
         # Save Scenarios
         df.to_csv(self.scenarios_file, index=True)
@@ -361,3 +364,4 @@ class Config:
     def read_scenarios(self):
         self.scenarios_file = self.generate_file_name('scenarios')
         self.scenarios = pd.read_csv(self.scenarios_file, index_col=[0])
+        self.scenarios_rows = self.scenarios.shape[0]

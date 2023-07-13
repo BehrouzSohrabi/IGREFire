@@ -7,7 +7,7 @@ import json
 import random
 
 from .messages import *
-from .utils import callback, progress_bar, traverse_branch
+from .utils import callback, progress_bar, traverse_branch, find_links_connections
 
 class MATPOWER:
 
@@ -141,16 +141,24 @@ class MATPOWER:
         # Find nodes connected to affected branches
         affected_nodes = {}
         branches = self.config.matpower['branch']
+        links = []
 
         # Iterate over branches to check if their nodes were affected
         for index, branch in enumerate(branches, start=1):
             fbus, tbus = int(branch[0]), int(branch[1])
+
             affected_nodes.setdefault(fbus, False)
             affected_nodes.setdefault(tbus, False)
             if index in affected_branches and affected_branches[index]:
                 affected_nodes[fbus] = True
                 affected_nodes[tbus] = True
+
+            if branch[2] == 0 and branch[4] == 0:
+                links.append([fbus, tbus])
         
+        # Find nodes connected to the affected nodes by LINKs
+        affected_nodes = find_links_connections(links, affected_nodes)
+
         return affected_nodes
 
     def _format_array_string(self, arr, precision=2):
@@ -292,13 +300,13 @@ class MATPOWER:
 
         # Iterate over scenarios
         scenario_list = []
-        for index, row in self.scenarios.iterrows():
+        for index, row in self.config.scenarios.iterrows():
 
             # Show progress bar
             id = index+1
             # if id > 1: break
             description = MATPOWER_PREPARATION_DESCRIPTION.format(id, row["Branch"], row["Ignition Point"], row["Weather"])
-            progress_bar(id, self.config.scenarios, prefix='Progress:', description=description)
+            progress_bar(id, self.config.scenarios_rows, prefix='Progress:', description=description)
 
             # Read Intensity.asc file and check for affected branches and nodes
             raster_file = f'{row["Run Directory"]}{self.config.FARSITE_intensity_file}'
@@ -317,15 +325,15 @@ class MATPOWER:
         print() # wrap progress bar
 
         # Drop any old columns
-        cols_to_remove = self.scenarios.filter(regex='^(# Affected|Affect)').columns
-        self.scenarios = self.scenarios.drop(columns=cols_to_remove)
+        cols_to_remove = self.config.scenarios.filter(regex='^(# Affected|Affect)').columns
+        self.config.scenarios = self.config.scenarios.drop(columns=cols_to_remove)
 
         # Only add columns from scenario_df that do not already exist
         scenario_df = pd.DataFrame(scenario_list)
-        self.scenarios = pd.concat([self.scenarios, scenario_df.loc[:, ~scenario_df.columns.isin(self.scenarios.columns)]], axis=1)
+        self.config.scenarios = pd.concat([self.config.scenarios, scenario_df.loc[:, ~scenario_df.columns.isin(self.config.scenarios.columns)]], axis=1)
 
         # Update Analysis Records with new raster and geojson overlap output data (affecting nodes and branches)
-        self.scenarios.to_csv(self.config.scenarios_file, index=True)
+        self.config.scenarios.to_csv(self.config.scenarios_file, index=True)
         self.config.update_record(status='Affected Branches Finished')
 
         # Update Analysis Status

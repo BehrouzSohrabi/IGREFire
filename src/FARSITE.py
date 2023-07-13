@@ -46,17 +46,17 @@ class FARSITE:
     def run(self, impact_file=''):
         
         # Update Analysis Status
-        callback('update', FARSITE_SCENARIOS.format(self.config.scenarios))
+        callback('update', FARSITE_SCENARIOS.format(self.config.scenarios_rows))
         
         print() # wrap progress bar
 
         # Iterate over scenarios
-        for index, row in self.scenarios.iterrows():
+        for index, row in self.config.scenarios.iterrows():
             
             # Show progress bar
             id = index+1
             description = FARSITE_DESCRIPTION.format(id, row["Branch"], row["Ignition Point"], row["Weather"])
-            progress_bar(id, self.config.scenarios, prefix='Progress:', description=description)
+            progress_bar(id, self.config.scenarios_rows, prefix='Progress:', description=description)
             
             # Run FARSITE Simulation
             if (impact_file == ''):
